@@ -290,7 +290,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"targets":     []string{"node", "group"},
 			"kinds":       []string{"tcp_connect", "http", "dns"},
 			"transports":  []string{"tcp", "udp"},
-			"ip_versions": []string{"ipv4", "ipv6", "any"},
+			"ip_versions": []string{"ipv4", "ipv6"},
 			"limits": map[string]any{
 				"max_members_per_job":               ProbeMaxMembersPerJob,
 				"max_results_per_job":               ProbeMaxResultsPerJob,

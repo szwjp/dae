@@ -222,9 +222,10 @@ func (p *nativeAPIProvider) SnapshotDatapath(ctx context.Context, detail string)
 	ebpf := nativeAPIEbpfDetail(snapshot.Ebpf)
 	if detail != "full" {
 		// The summary body keeps the cheap summary fields and omits the
-		// detail lists the contract marks optional.
+		// detail lists the contract marks optional. The maps member stays:
+		// the contract requires it, and its summary carries the state alone.
 		ebpf.Attachments = nil
-		ebpf.Maps = nil
+		ebpf.Maps = &nativeapi.EbpfMaps{State: "unknown"}
 	}
 	datapath := nativeapi.Datapath{
 		ObservedAt: snapshot.ObservedAt.UTC().Format(time.RFC3339),
