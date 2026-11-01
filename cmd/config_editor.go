@@ -155,15 +155,23 @@ func sourcePaths(all []configSourceFile) []string {
 // 400 rather than a 404 because the request itself is disallowed.
 var errHiddenSourceRef = &nativeapi.APIError{Status: 400, Code: "invalid_request", Message: "config source cannot be referenced"}
 
-// readOnlyReason explains why s cannot be written; it is empty when s is writable.
-func (e *configEditor) readOnlyReason(all []configSourceFile, s configSourceFile) string {
+// readOnlyReasons explains why s cannot be written; both are empty when s is writable. The
+// contract's read_only_reason names only the causes the contract defines, and it is present only
+// while one of them applies, so a reason dae alone knows travels in the source's x-dae member
+// instead. A tree that does not follow the managed layout leaves every write off, which is what
+// the contract's writes_disabled says; the entry file is read-only on its own, which no contract
+// cause covers, so it carries no contract reason at all.
+func (e *configEditor) readOnlyReasons(all []configSourceFile, s configSourceFile) (contract string, dae string) {
 	if ok, reason := e.layoutOK(all); !ok {
-		return reason
+		if reason == "writes_disabled" {
+			return "writes_disabled", ""
+		}
+		return "writes_disabled", reason
 	}
 	if !e.sourceWritable(s) {
-		return "entry_source"
+		return "", "entry_source"
 	}
-	return ""
+	return "", ""
 }
 
 // layoutOK is the write gate: the feature flag plus the managed layout.
@@ -279,7 +287,7 @@ func (e *configEditor) scrub(text string) string {
 	return strings.ReplaceAll(text, hiddenConfigSourceName, hiddenSourceLabel)
 }
 
-func (e *configEditor) sourceView(s configSourceFile, readOnlyReason string) (nativeapi.ConfigSource, bool) {
+func (e *configEditor) sourceView(s configSourceFile, contractReason string, daeReason string) (nativeapi.ConfigSource, bool) {
 	content, masked := maskSource(string(s.raw))
 	view := nativeapi.ConfigSource{
 		ConfigSourceContent: nativeapi.ConfigSourceContent{
@@ -291,9 +299,12 @@ func (e *configEditor) sourceView(s configSourceFile, readOnlyReason string) (na
 			Content:       content,
 			LineCount:     strings.Count(content, "\n") + 1,
 		},
-		Writable:       readOnlyReason == "",
-		ReadOnlyReason: readOnlyReason,
+		Writable:       contractReason == "" && daeReason == "",
+		ReadOnlyReason: contractReason,
 		LoadedAt:       s.modTime,
+	}
+	if daeReason != "" {
+		view.XDae = &nativeapi.ConfigSourceXDae{ReadOnlyReason: daeReason}
 	}
 	return view, masked
 }
@@ -316,7 +327,8 @@ func (e *configEditor) GetConfig(ctx context.Context) (nativeapi.EffectiveConfig
 		Diagnostics:  []nativeapi.ConfigDiagnostic{},
 	}
 	for _, s := range visible {
-		view, masked := e.sourceView(s, e.readOnlyReason(all, s))
+		contractReason, daeReason := e.readOnlyReasons(all, s)
+		view, masked := e.sourceView(s, contractReason, daeReason)
 		if masked {
 			result.SecretsRedacted = true
 		}
@@ -364,7 +376,8 @@ func (e *configEditor) GetConfigSource(ctx context.Context, sourceID string) (na
 	if err != nil {
 		return nativeapi.ConfigSourceContent{}, false, err
 	}
-	view, masked := e.sourceView(s, e.readOnlyReason(all, s))
+	contractReason, daeReason := e.readOnlyReasons(all, s)
+	view, masked := e.sourceView(s, contractReason, daeReason)
 	return view.ConfigSourceContent, !masked, nil
 }
 

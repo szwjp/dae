@@ -145,10 +145,12 @@ func TestConfigGetConfigHidesAPIDaeAndMarksEntryReadOnly(t *testing.T) {
 		if s.Path == "api.dae" {
 			t.Fatal("api.dae must not be listed")
 		}
-		if s.Path == "config.dae" && (s.Writable || s.ReadOnlyReason != "entry_source") {
-			t.Fatalf("config.dae must be read-only with reason entry_source: %+v", s)
+		// The entry file is read-only. The contract names no cause for it, so it carries
+		// dae's own reason in x-dae and no contract reason at all.
+		if s.Path == "config.dae" && (s.Writable || s.ReadOnlyReason != "" || s.XDae == nil || s.XDae.ReadOnlyReason != "entry_source") {
+			t.Fatalf("config.dae must be read-only with the x-dae reason entry_source: %+v", s)
 		}
-		if strings.HasPrefix(s.Path, "config.d/") && (!s.Writable || s.ReadOnlyReason != "") {
+		if strings.HasPrefix(s.Path, "config.d/") && (!s.Writable || s.ReadOnlyReason != "" || s.XDae != nil) {
 			t.Fatalf("module must be writable: %+v", s)
 		}
 	}
@@ -534,8 +536,10 @@ func TestConfigGetConfigMasksListenerSecret(t *testing.T) {
 		if strings.Contains(s.Content, "hunter2") {
 			t.Fatalf("secret leaked in %s: %q", s.Path, s.Content)
 		}
-		if s.Writable || s.ReadOnlyReason != "layout_unmanaged" {
-			t.Fatalf("an unmanaged tree must be read-only with layout_unmanaged: %+v", s)
+		// An unmanaged tree leaves every write off. The contract says so with
+		// writes_disabled; dae's own reason travels in x-dae.
+		if s.Writable || s.ReadOnlyReason != "writes_disabled" || s.XDae == nil || s.XDae.ReadOnlyReason != "layout_unmanaged" {
+			t.Fatalf("an unmanaged tree must be read-only with writes_disabled: %+v", s)
 		}
 	}
 }

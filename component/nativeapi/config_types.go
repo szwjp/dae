@@ -39,13 +39,22 @@ type ConfigSourceContent struct {
 	LineCount     int    `json:"line_count"`
 }
 
+// ConfigSourceXDae carries dae's own reasons for a source's read-only state. The contract's
+// read_only_reason names the causes it defines, so a reason only dae knows travels here.
+type ConfigSourceXDae struct {
+	// ReadOnlyReason is dae's own reason, such as `entry_source` or `layout_unmanaged`.
+	ReadOnlyReason string `json:"read_only_reason,omitempty"`
+}
+
 // ConfigSource is an entry of GET /config.
 type ConfigSource struct {
 	ConfigSourceContent
 	Writable bool `json:"writable"`
-	// ReadOnlyReason explains why the source is not writable; empty when writable.
+	// ReadOnlyReason explains why the source is not writable; empty when writable. It names
+	// only the causes the contract defines; dae's own reasons travel in XDae.
 	ReadOnlyReason string    `json:"read_only_reason,omitempty"`
 	LoadedAt       time.Time `json:"loaded_at"`
+	XDae           *ConfigSourceXDae `json:"x-dae,omitempty"`
 }
 
 // ConfigDiagnostic is one diagnostic attached to a source.
