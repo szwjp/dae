@@ -52,8 +52,8 @@ type ConfigSource struct {
 	Writable bool `json:"writable"`
 	// ReadOnlyReason explains why the source is not writable; empty when writable. It names
 	// only the causes the contract defines; dae's own reasons travel in XDae.
-	ReadOnlyReason string    `json:"read_only_reason,omitempty"`
-	LoadedAt       time.Time `json:"loaded_at"`
+	ReadOnlyReason string            `json:"read_only_reason,omitempty"`
+	LoadedAt       time.Time         `json:"loaded_at"`
 	XDae           *ConfigSourceXDae `json:"x-dae,omitempty"`
 }
 
