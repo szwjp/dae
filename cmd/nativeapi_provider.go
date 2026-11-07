@@ -65,6 +65,19 @@ type nativeAPIProvider struct {
 	lastGenerationID string
 }
 
+// generationID names the generation the accepted configuration is on.
+// GET /config and the events report the supervisor's generation, and the rule
+// dictionaries must name the same one: a client compares them before it
+// rewrites a source, and a mismatch means the list and the sources it anchors
+// into are not from one generation. The control plane's routing epoch is a
+// datapath identity, so it is only the fallback when no generation is active.
+func (p *nativeAPIProvider) generationID(planeGeneration string) string {
+	if active := p.supervisor.activeSnapshot(); active != nil && active.id != "" {
+		return active.id
+	}
+	return planeGeneration
+}
+
 func (p *nativeAPIProvider) SnapshotRuntime(ctx context.Context, detail string) (nativeapi.Runtime, error) {
 	if err := ctx.Err(); err != nil {
 		return nativeapi.Runtime{}, err

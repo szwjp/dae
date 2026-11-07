@@ -46,7 +46,7 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 	}
 	snapshot := plane.SnapshotRoutingRules()
 	list := nativeapi.RuleList{
-		GenerationID: snapshot.GenerationID,
+		GenerationID: p.generationID(snapshot.GenerationID),
 		Rules:        make([]nativeapi.RoutingRule, 0, len(snapshot.Rules)+1),
 		Fallback: nativeapi.RuleFallback{
 			Outbound: snapshot.FallbackOutbound,
