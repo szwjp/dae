@@ -27,6 +27,23 @@ type Walker struct {
 	hasLexerError bool
 }
 
+// originOf records where a statement was written from the tokens the parser
+// read: the first token's line and column and the exact source text between the
+// first and last token. Comments between those tokens are lexer trivia and stay
+// out, which is what the display text wants; a trailing comment is therefore
+// not part of it.
+func originOf(ctx antlr.ParserRuleContext) Origin {
+	start, stop := ctx.GetStart(), ctx.GetStop()
+	if start == nil || stop == nil {
+		return Origin{}
+	}
+	origin := Origin{Line: start.GetLine(), Column: start.GetColumn() + 1}
+	if stream := start.GetInputStream(); stream != nil {
+		origin.Text = strings.TrimSpace(stream.GetText(start.GetStart(), stop.GetStop()))
+	}
+	return origin
+}
+
 func NewWalker(parser antlr.Parser) *Walker {
 	return &Walker{
 		parser: parser,
@@ -259,6 +276,7 @@ func (w *Walker) parseRoutingRule(ctx dae_config.IRoutingRuleContext) *RoutingRu
 	return &RoutingRule{
 		AndFunctions: andFunctions,
 		Outbound:     *outbound,
+		Origin:       originOf(ctx),
 	}
 }
 
@@ -275,24 +293,32 @@ func (p *routingRuleOrDeclarationOrLiteralOrExpressionListParser) Parse(ctx dae_
 			if rule == nil {
 				return
 			}
-			p.Items = append(p.Items, NewRoutingRuleItem(rule))
+			item := NewRoutingRuleItem(rule)
+			item.Origin = rule.Origin
+			p.Items = append(p.Items, item)
 		case dae_config.IDeclarationContext:
 			param := p.Walker.parseDeclaration(elem)
 			if param == nil {
 				return
 			}
-			p.Items = append(p.Items, NewParamItem(param))
+			item := NewParamItem(param)
+			item.Origin = originOf(elem)
+			p.Items = append(p.Items, item)
 		case *dae_config.LiteralContext:
-			p.Items = append(p.Items, NewParamItem(&Param{
+			item := NewParamItem(&Param{
 				Key: "",
 				Val: getValueFromLiteral(elem),
-			}))
+			})
+			item.Origin = originOf(elem)
+			p.Items = append(p.Items, item)
 		case dae_config.IExpressionContext:
 			section := p.Walker.parseExpression(elem)
 			if section == nil {
 				return
 			}
-			p.Items = append(p.Items, NewSectionItem(section))
+			item := NewSectionItem(section)
+			item.Origin = originOf(elem)
+			p.Items = append(p.Items, item)
 		case dae_config.IRoutingRuleOrDeclarationOrLiteralOrExpressionListContext:
 			p.Parse(elem)
 		default:

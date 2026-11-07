@@ -17,13 +17,13 @@ import (
 )
 
 func TestSnapshotConfiguredRules(t *testing.T) {
-	rules, fallback := snapshotConfiguredRules([]*config_parser.RoutingRule{{
+	rules, fallback, _ := snapshotConfiguredRules([]*config_parser.RoutingRule{{
 		AndFunctions: []*config_parser.Function{{
 			Name:   "pname",
 			Params: []*config_parser.Param{{Val: "curl"}},
 		}},
 		Outbound: config_parser.Function{Name: "proxy"},
-	}}, "direct")
+	}}, "direct", config_parser.Origin{})
 	if len(rules) != 1 {
 		t.Fatalf("rules = %d, want 1", len(rules))
 	}
@@ -114,7 +114,7 @@ func TestSnapshotConfiguredRulesKeepsConfiguredForm(t *testing.T) {
 		Outbound: config_parser.Function{Name: "block"},
 	}}
 
-	rules, _ := snapshotConfiguredRules(configured, "proxy")
+	rules, _, _ := snapshotConfiguredRules(configured, "proxy", config_parser.Origin{})
 	if len(rules) != 1 {
 		t.Fatalf("rules = %d, want 1", len(rules))
 	}
@@ -130,8 +130,46 @@ func TestSnapshotConfiguredRulesKeepsConfiguredForm(t *testing.T) {
 		AndFunctions: []*config_parser.Function{{Name: "domain", Params: expanded}},
 		Outbound:     config_parser.Function{Name: "block"},
 	}}
-	expandedRules, _ := snapshotConfiguredRules(expandedRule, "proxy")
+	expandedRules, _, _ := snapshotConfiguredRules(expandedRule, "proxy", config_parser.Origin{})
 	if len(expandedRules[0].Expression) < 10000 {
 		t.Fatalf("expanded expression = %d bytes, expected the fixture to be large", len(expandedRules[0].Expression))
+	}
+}
+
+// TestSnapshotConfiguredRulesCarriesSourceAndMust checks the wire semantics
+// doona edits by: the expression is the statement as written, the outbound has
+// the must marker split off into the boolean, and the origin locates the line
+// that a write replaces.
+func TestSnapshotConfiguredRulesCarriesSourceAndMust(t *testing.T) {
+	origin := config_parser.Origin{File: "/etc/dae/config.d/routing.dae", Line: 15, Column: 1, Text: "mac('00:e0:4c:2c:1a:b5') -> must_direct"}
+	rules, fallback, fallbackExpression := snapshotConfiguredRules([]*config_parser.RoutingRule{{
+		AndFunctions: []*config_parser.Function{{
+			Name:   "mac",
+			Params: []*config_parser.Param{{Val: "00:e0:4c:2c:1a:b5"}},
+		}},
+		Outbound: config_parser.Function{Name: "direct", Params: []*config_parser.Param{{Val: "must"}}},
+		Origin:   origin,
+	}}, "proxy", config_parser.Origin{File: "/etc/dae/config.d/routing.dae", Line: 54, Column: 1, Text: "fallback: proxy"})
+	if len(rules) != 1 {
+		t.Fatalf("rules = %d", len(rules))
+	}
+	rule := rules[0]
+	if rule.Expression != origin.Text {
+		t.Fatalf("expression = %q, want the source text", rule.Expression)
+	}
+	if rule.Outbound != "direct" {
+		t.Fatalf("outbound = %q, want direct without the must marker", rule.Outbound)
+	}
+	if !rule.Must {
+		t.Fatal("must = false, want true")
+	}
+	if rule.Origin.File != origin.File || rule.Origin.Line != origin.Line {
+		t.Fatalf("origin = %#v", rule.Origin)
+	}
+	if fallback != "proxy" {
+		t.Fatalf("fallback = %q", fallback)
+	}
+	if fallbackExpression != "fallback: proxy" {
+		t.Fatalf("fallback expression = %q", fallbackExpression)
 	}
 }

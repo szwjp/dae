@@ -53,9 +53,22 @@ func NewSectionItem(section *Section) *Item {
 	}
 }
 
+// Origin is where a statement was written: the source file, its 1-based
+// line and column, and the text as written. The parser fills the line, column
+// and text; the merger stamps the file each statement was read from. An empty
+// File means the location is unknown, which is what the API reports as a null
+// source.
+type Origin struct {
+	File   string
+	Line   int
+	Column int
+	Text   string
+}
+
 type Item struct {
-	Type  ItemType
-	Value any
+	Type   ItemType
+	Value  any
+	Origin Origin
 }
 
 func (i *Item) String(compact bool, quoteVal bool) string {
@@ -225,6 +238,9 @@ func (p *paramAndFunctions) String(compact bool, quoteVal bool) string {
 type RoutingRule struct {
 	AndFunctions []*Function
 	Outbound     Function
+	// Origin is the statement's location and text in the source file it was
+	// written in. The merger fills File; the parser fills the rest.
+	Origin Origin
 }
 
 func (r *RoutingRule) String(replaceParamWithN bool, compact bool, quoteVal bool) string {

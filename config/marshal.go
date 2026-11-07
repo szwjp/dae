@@ -254,6 +254,11 @@ func (m *Marshaller) marshalParam(from reflect.Value, depth int) (err error) {
 		if !ok {
 			return fmt.Errorf("tag mapstructure is required")
 		}
+		// A "-" field is carried beside the decoded values (for example a
+		// declaration's origin) and must not be written back into the text.
+		if key == "-" {
+			continue
+		}
 		// Reserved field.
 		if key == "_" || key == "so_mark_from_dae_set" {
 			switch structField.Name {

@@ -135,6 +135,15 @@ func (m *Merger) readEntry(entry string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to parse config file %v:\n%w", entry, err)
 	}
+	// Stamp the file each statement came from before the sections are merged:
+	// after the merge the items of several files share one section, and the
+	// line numbers alone say nothing about the file they belong to. The
+	// absolute path is what the config editor and the rule dictionary agree on.
+	originFile := entry
+	if abs, absErr := filepath.Abs(entry); absErr == nil {
+		originFile = abs
+	}
+	stampOriginFile(entrySections, originFile)
 	m.entryToSectionMap[entry] = m.convertSectionsToMap(entrySections)
 	for _, sec := range entrySections {
 		m.origins[sec.Name] = append(m.origins[sec.Name], SectionOrigin{
@@ -144,6 +153,27 @@ func (m *Merger) readEntry(entry string) (err error) {
 		})
 	}
 	return nil
+}
+
+// stampOriginFile records the file a parsed statement was read from. It walks
+// into nested sections so a declaration inside dns { routing { request { } } }
+// carries its origin too.
+func stampOriginFile(sections []*config_parser.Section, file string) {
+	for _, section := range sections {
+		stampItemOriginFile(section.Items, file)
+	}
+}
+
+func stampItemOriginFile(items []*config_parser.Item, file string) {
+	for _, item := range items {
+		item.Origin.File = file
+		switch value := item.Value.(type) {
+		case *config_parser.RoutingRule:
+			value.Origin.File = file
+		case *config_parser.Section:
+			stampItemOriginFile(value.Items, file)
+		}
+	}
 }
 
 func unsqueezeEntries(patternEntries []string) (unsqueezed []string, err error) {

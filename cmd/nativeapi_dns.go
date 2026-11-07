@@ -312,20 +312,21 @@ func (p *nativeAPIProvider) DnsRules(ctx context.Context) (nativeapi.DnsRuleList
 	}
 	snapshot := plane.SnapshotDnsRules()
 	list := nativeapi.DnsRuleList{GenerationID: snapshot.GenerationID}
-	list.Request = nativeDnsRules("request", snapshot.Request, snapshot.RequestFallback)
-	list.Response = nativeDnsRules("response", snapshot.Response, snapshot.ResponseFallback)
+	list.Request = p.nativeDnsRules("request", snapshot.Request, snapshot.RequestFallback)
+	list.Response = p.nativeDnsRules("response", snapshot.Response, snapshot.ResponseFallback)
 	return list, nil
 }
 
-func nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback control.DnsRuleSnapshot) []nativeapi.DnsRoutingRule {
+func (p *nativeAPIProvider) nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback control.DnsRuleSnapshot) []nativeapi.DnsRoutingRule {
 	result := make([]nativeapi.DnsRoutingRule, 0, len(rules)+1)
 	for index, rule := range rules {
 		result = append(result, nativeapi.DnsRoutingRule{
 			RuleID:     "dns-" + kind + ":" + strconv.Itoa(index),
 			Index:      uint64(index),
 			Expression: rule.Expression,
-			Action:     nativeDnsAction(kind, rule.Action),
-			Upstream:   nativeDnsUpstream(kind, rule.Action, rule.Upstream),
+			Action:     rule.Action,
+			Upstream:   nativeDnsUpstreamValue(rule.Upstream),
+			Source:     p.ruleSource(rule.Origin),
 			Kind:       "rule",
 		})
 	}
@@ -333,36 +334,15 @@ func nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback contr
 		RuleID:     "dns-" + kind + ":fallback",
 		Index:      uint64(len(result)),
 		Expression: fallback.Expression,
-		Action:     nativeDnsAction(kind, fallback.Action),
-		Upstream:   nativeDnsUpstream(kind, fallback.Action, fallback.Upstream),
+		Action:     fallback.Action,
+		Upstream:   nativeDnsUpstreamValue(fallback.Upstream),
+		Source:     p.ruleSource(fallback.Origin),
 		Kind:       "fallback",
 	})
 	return result
 }
 
-func nativeDnsAction(kind, action string) string {
-	action = strings.ToLower(action)
-	switch kind {
-	case "request":
-		switch action {
-		case "upstream", "asis", "reject":
-			return action
-		}
-		return "asis"
-	default:
-		switch action {
-		case "accept", "reject", "requery":
-			return action
-		}
-		return "accept"
-	}
-}
-
-func nativeDnsUpstream(kind, action, upstream string) *string {
-	action = strings.ToLower(action)
-	if (kind == "request" && action != "upstream") || (kind == "response" && action != "requery") {
-		return nil
-	}
+func nativeDnsUpstreamValue(upstream string) *string {
 	if upstream == "" {
 		return nil
 	}

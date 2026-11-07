@@ -754,7 +754,7 @@ func NewControlPlaneWithContextOptions(
 	// Snapshot the rules as configured, before the optimizers' expansion is all
 	// that is left of them. The API reports what the operator wrote; the
 	// optimized tree is the evaluation order and stays internal.
-	routingRules, routingFallback := snapshotConfiguredRules(routingA.Rules, routingA.Fallback)
+	routingRules, routingFallback, routingFallbackExpression := snapshotConfiguredRules(routingA.Rules, routingA.Fallback, routingA.FallbackOrigin)
 	routingA.Rules = nil // Release.
 	// Device-scoped whitelists (selector && domain -> group followed by a
 	// selector-only -> direct/block line) cannot match in kernel space when
@@ -872,16 +872,18 @@ func NewControlPlaneWithContextOptions(
 		listenIp:      "0.0.0.0",
 		egressRuntime: egressRuntime,
 		controlPlaneGenerationState: controlPlaneGenerationState{
-			outbounds:           outbounds,
-			dnsRules:            dnsRulesFromConfig(&dnsConfig.Routing, routingGenerationID(policyIdentity.Epoch())),
-			routingRules:        routingRules,
-			routingFallback:     routingFallback,
-			routingGeneration:   routingGenerationID(policyIdentity.Epoch()),
-			referencedOutbounds: referencedOutbounds,
-			dialMode:            dialMode,
-			policyIdentity:      policyIdentity,
-			routingMatcher:      routingMatcher,
-			bootstrapResolvers:  bootstrapResolvers,
+			outbounds:                 outbounds,
+			dnsRules:                  dnsRulesFromConfig(&dnsConfig.Routing, routingGenerationID(policyIdentity.Epoch())),
+			routingRules:              routingRules,
+			routingFallback:           routingFallback,
+			routingFallbackExpression: routingFallbackExpression,
+			routingFallbackOrigin:     routingA.FallbackOrigin,
+			routingGeneration:         routingGenerationID(policyIdentity.Epoch()),
+			referencedOutbounds:       referencedOutbounds,
+			dialMode:                  dialMode,
+			policyIdentity:            policyIdentity,
+			routingMatcher:            routingMatcher,
+			bootstrapResolvers:        bootstrapResolvers,
 		},
 		controlPlaneDNSRuntime: newControlPlaneDNSRuntime(buildOpts.DelayDNSListenerStart),
 		controlPlaneDatapathJanitor: controlPlaneDatapathJanitor{

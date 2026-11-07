@@ -61,8 +61,10 @@ func ParamParser(to reflect.Value, section *config_parser.Section, ignoreType []
 		if !ok {
 			return fmt.Errorf("field \"%v\" has no mapstructure tag", structField.Name)
 		}
-		if key == "_" || key == "so_mark_from_dae_set" {
-			// omit
+		if key == "_" || key == "-" || key == "so_mark_from_dae_set" {
+			// omit: a "_" field is collected from the item type by ParamParser,
+			// a "-" field is carried beside the decoded values (for example the
+			// origin of a declaration) and never read from the section.
 			continue
 		}
 		annotationSF, annotatable := tot.FieldByName(structField.Name + "Annotation")

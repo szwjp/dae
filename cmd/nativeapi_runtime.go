@@ -48,7 +48,10 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 	list := nativeapi.RuleList{
 		GenerationID: snapshot.GenerationID,
 		Rules:        make([]nativeapi.RoutingRule, 0, len(snapshot.Rules)+1),
-		Fallback:     nativeapi.RuleFallback{Outbound: snapshot.FallbackOutbound, Source: nil},
+		Fallback: nativeapi.RuleFallback{
+			Outbound: snapshot.FallbackOutbound,
+			Source:   p.ruleSource(snapshot.FallbackOrigin),
+		},
 	}
 	for index, rule := range snapshot.Rules {
 		list.Rules = append(list.Rules, nativeapi.RoutingRule{
@@ -57,18 +60,22 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 			Expression: rule.Expression,
 			Outbound:   rule.Outbound,
 			Must:       rule.Must,
-			Source:     nil,
+			Source:     p.ruleSource(rule.Origin),
 			Kind:       "rule",
 		})
+	}
+	fb := snapshot.FallbackExpression
+	if fb == "" {
+		fb = "fallback: " + snapshot.FallbackOutbound
 	}
 	fallbackIndex := len(list.Rules)
 	list.Rules = append(list.Rules, nativeapi.RoutingRule{
 		RuleID:     "traffic:fallback",
 		Index:      uint64(fallbackIndex),
-		Expression: "fallback: " + snapshot.FallbackOutbound,
+		Expression: fb,
 		Outbound:   snapshot.FallbackOutbound,
 		Must:       false,
-		Source:     nil,
+		Source:     p.ruleSource(snapshot.FallbackOrigin),
 		Kind:       "fallback",
 	})
 	return list, nil

@@ -116,10 +116,16 @@ type Group struct {
 type DnsRequestRouting struct {
 	Rules    []*config_parser.RoutingRule `mapstructure:"_"`
 	Fallback FunctionOrString             `mapstructure:"fallback" required:""`
+	// FallbackOrigin is where the fallback declaration was written. config.New
+	// copies it from the parsed items the merger stamped; it is not part of the
+	// section decoder.
+	FallbackOrigin config_parser.Origin `mapstructure:"-"`
 }
 type DnsResponseRouting struct {
 	Rules    []*config_parser.RoutingRule `mapstructure:"_"`
 	Fallback FunctionOrString             `mapstructure:"fallback" required:""`
+	// FallbackOrigin is where the fallback declaration was written.
+	FallbackOrigin config_parser.Origin `mapstructure:"-"`
 }
 type DnsRouting struct {
 	Request  DnsRequestRouting  `mapstructure:"request"`
@@ -151,6 +157,9 @@ type Dns struct {
 type Routing struct {
 	Rules    []*config_parser.RoutingRule `mapstructure:"_"`
 	Fallback FunctionOrString             `mapstructure:"fallback" default:"direct"`
+	// FallbackOrigin is where the fallback declaration was written, when the
+	// configuration wrote one.
+	FallbackOrigin config_parser.Origin `mapstructure:"-"`
 }
 
 type Config struct {
@@ -254,5 +263,13 @@ func New(sections []*config_parser.Section) (conf *Config, err error) {
 			return nil, err
 		}
 	}
+
+	// Keep where each fallback was written: the sections still carry the
+	// merger's origins, the decoded configuration has no room for them.
+	parsedSections := make(map[string]*config_parser.Section, len(nameToSection))
+	for name, section := range nameToSection {
+		parsedSections[name] = section.Val
+	}
+	attachFallbackOrigins(conf, parsedSections)
 	return conf, nil
 }
