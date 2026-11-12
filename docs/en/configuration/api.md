@@ -180,9 +180,11 @@ requires `secret`; `allow_anonymous_loopback` cannot replace it.
 
 Contract-aware browsers (such as doona) pick their sign-in screen from the public
 discovery view, whose `auth.mode` has no "no authentication" value. With
-anonymous loopback they therefore still ask for a token: enter any placeholder.
-When no `secret` is set, the listener ignores `Authorization` on non-discovery
-requests and admits the loopback caller anyway.
+anonymous loopback they therefore still ask for a token: **leave the field
+empty**. The listener ignores `Authorization` on non-discovery requests and
+admits the loopback caller anyway; a placeholder is not equivalent, because a
+credential that is present but wrong is rejected on `GET /api` itself, and the
+sign-in then fails before any other request is made.
 
 Use an unpredictable token of at least 16 bytes. The secret must be visible
 ASCII without whitespace or commas. Secrets are never returned by the API or

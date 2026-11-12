@@ -157,9 +157,10 @@ userspace 可见流量，因为 `runtime.traffic` 与其历史序列没有改变
 `secret`，不能用 `allow_anonymous_loopback` 替代。
 
 按契约实现的浏览器前端（例如 doona）依据 public discovery 的 `auth.mode` 决定登录方式，
-而该字段没有“无需认证”这个取值。因此在匿名 loopback 模式下前端仍会要求填写 token：随便
-填一个占位值即可。`secret` 为空时，listener 对非 discovery 请求不校验 `Authorization`，
-loopback 调用方本来就会被放行。
+而该字段没有“无需认证”这个取值。因此在匿名 loopback 模式下前端仍会要求填写 token：**留空
+即可**。`secret` 为空时，listener 对非 discovery 请求不校验 `Authorization`，loopback
+调用方本来就会被放行；但“随便填一个占位值”不等于留空——带了凭证却不匹配时，`GET /api`
+本身就会拒绝，登录会在发出任何其它请求之前失败。
 
 建议使用至少 16 字节的不可预测 token。`secret` 必须是可见 ASCII，且不能包含空白或
 逗号。API 不会返回 secret，日志也不会记录 secret。
