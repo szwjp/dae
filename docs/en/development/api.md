@@ -126,8 +126,10 @@ Deliberate deviations from the contract:
 - `api.dae` is hidden. It is omitted from `sources[]`, and its id answers
   `404 resource_not_found`, the same as an unknown id. Capabilities report it in
   `x-dae.hidden_sources`.
-- `config.dae` is read-only (`entry_source`). A replacement may not change the
-  `api` section.
+- `config.dae` is read-only. A replacement may not change the `api` section.
+  The contract's `read_only_reason` enum has no value for the entry file or an
+  unmanaged tree, so those sources report no reason; the tree's own reason stays
+  in `x-dae.layout.reason`.
 - `GET` reads the files on disk, not an accepted snapshot. Its `revision` is
   the same function of the configuration that `runtime.generation.config_revision`
   uses, so the two compare: they match while disk is what the engine loaded and

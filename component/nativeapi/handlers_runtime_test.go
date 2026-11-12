@@ -234,9 +234,10 @@ func TestRuntimeCapabilitiesAdvertiseNewResources(t *testing.T) {
 	if datapath["available"] != true {
 		t.Fatalf("datapath = %#v", datapath)
 	}
-	direct := resources["runtime_direct_stats"].(map[string]any)
+	extension := resources["x-dae"].(map[string]any)
+	direct := extension["runtime_direct_stats"].(map[string]any)
 	if direct["available"] != true {
-		t.Fatalf("runtime_direct_stats = %#v", direct)
+		t.Fatalf("x-dae.runtime_direct_stats = %#v", direct)
 	}
 }
 

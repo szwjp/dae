@@ -38,24 +38,22 @@ func (s *Server) handleDiscovery(w http.ResponseWriter, r *http.Request, full bo
 		APIMajor: APIMajor,
 		BasePath: BasePath,
 		Links: map[string]any{
-			"version":              "/api/v1/version",
-			"capabilities":         "/api/v1/capabilities",
-			"config":               "/api/v1/config",
-			"config_validate":      "/api/v1/config/validate",
-			"runtime":              "/api/v1/runtime",
-			"runtime_outbounds":    "/api/v1/runtime/outbounds",
-			"runtime_direct_stats": "/api/v1/runtime/direct-stats",
-			"traffic_history":      "/api/v1/runtime/traffic/history",
-			"memory_history":       "/api/v1/runtime/memory/history",
-			"logs":                 "/api/v1/logs",
-			"providers":            "/api/v1/providers",
-			"rules":                "/api/v1/rules",
-			"routing_trace":        "/api/v1/routing/trace",
-			"operations":           "/api/v1/operations/{operation_id}",
-			"geodata":              "/api/v1/geodata",
-			"auth_setup":           nil,
-			"auth_login":           nil,
-			"auth_logout":          nil,
+			"version":           "/api/v1/version",
+			"capabilities":      "/api/v1/capabilities",
+			"config":            "/api/v1/config",
+			"config_validate":   "/api/v1/config/validate",
+			"runtime":           "/api/v1/runtime",
+			"runtime_outbounds": "/api/v1/runtime/outbounds",
+			"traffic_history":   "/api/v1/runtime/traffic/history",
+			"memory_history":    "/api/v1/runtime/memory/history",
+			"logs":              "/api/v1/logs",
+			"providers":         "/api/v1/providers",
+			"rules":             "/api/v1/rules",
+			"operations":        "/api/v1/operations/{operation_id}",
+			"geodata":           "/api/v1/geodata",
+			"auth_setup":        nil,
+			"auth_login":        nil,
+			"auth_logout":       nil,
 		},
 		Auth: auth,
 	})
@@ -169,10 +167,9 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	} else {
 		resources["runtime_outbounds"] = map[string]any{"available": false}
 	}
-	if s.directStats != nil {
-		resources["runtime_direct_stats"] = map[string]any{"available": true}
-	} else {
-		resources["runtime_direct_stats"] = map[string]any{"available": false}
+	// The contract lists no direct-stats resource, so this engine-only one goes under x-dae.
+	resources["x-dae"] = map[string]any{
+		"runtime_direct_stats": map[string]any{"available": s.directStats != nil},
 	}
 	if s.memory != nil {
 		metrics := s.memory.MemoryMetrics(r.Context())
@@ -303,7 +300,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"targets":     []string{"node", "group"},
 			"kinds":       []string{"tcp_connect", "http", "dns"},
 			"transports":  []string{"tcp", "udp"},
-			"ip_versions": []string{"ipv4", "ipv6", "any"},
+			"ip_versions": []string{"ipv4", "ipv6"},
 			"limits": map[string]any{
 				"max_members_per_job":               ProbeMaxMembersPerJob,
 				"max_results_per_job":               ProbeMaxResultsPerJob,

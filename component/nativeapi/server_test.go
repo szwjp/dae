@@ -154,7 +154,7 @@ func TestDiscoveryPublicAndFull(t *testing.T) {
 		t.Fatalf("status = %v", fullBody["status"])
 	}
 	fullLinks := fullBody["links"].(map[string]any)
-	for _, key := range []string{"version", "capabilities", "runtime", "config", "operations", "routing_trace"} {
+	for _, key := range []string{"version", "capabilities", "runtime", "config", "operations"} {
 		if _, ok := fullLinks[key]; !ok {
 			t.Fatalf("full links missing %q: %#v", key, fullLinks)
 		}

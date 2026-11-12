@@ -178,8 +178,9 @@ func TestConfigGetConfigHidesAPIDaeAndMarksEntryReadOnly(t *testing.T) {
 		if s.Path == "api.dae" {
 			t.Fatal("api.dae must not be listed")
 		}
-		if s.Path == "config.dae" && (s.Writable || s.ReadOnlyReason != "entry_source") {
-			t.Fatalf("config.dae must be read-only with reason entry_source: %+v", s)
+		// The contract's reason enum has no value for the entry file, so none is reported.
+		if s.Path == "config.dae" && (s.Writable || s.ReadOnlyReason != "") {
+			t.Fatalf("config.dae must be read-only without a contract reason: %+v", s)
 		}
 		if strings.HasPrefix(s.Path, "config.d/") && (!s.Writable || s.ReadOnlyReason != "") {
 			t.Fatalf("module must be writable: %+v", s)
@@ -567,8 +568,9 @@ func TestConfigGetConfigMasksListenerSecret(t *testing.T) {
 		if strings.Contains(s.Content, "hunter2") {
 			t.Fatalf("secret leaked in %s: %q", s.Path, s.Content)
 		}
-		if s.Writable || s.ReadOnlyReason != "layout_unmanaged" {
-			t.Fatalf("an unmanaged tree must be read-only with layout_unmanaged: %+v", s)
+		// The tree's own reason travels in x-dae; the contract's per-source enum has no value for it.
+		if s.Writable || s.ReadOnlyReason != "" {
+			t.Fatalf("an unmanaged tree must be read-only without a contract reason: %+v", s)
 		}
 	}
 }
