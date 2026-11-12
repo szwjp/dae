@@ -48,7 +48,7 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 	}
 	snapshot := plane.SnapshotRoutingRules()
 	list := nativeapi.RuleList{
-		GenerationID: snapshot.GenerationID,
+		GenerationID: p.generationID(snapshot.GenerationID),
 		Rules:        make([]nativeapi.RoutingRule, 0, len(snapshot.Rules)+1),
 		Fallback:     nativeapi.RuleFallback{Outbound: snapshot.FallbackOutbound, Source: nil},
 	}
@@ -74,6 +74,17 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 		Kind:       "fallback",
 	})
 	return list, nil
+}
+
+// generationID is the identity this generation reports in the resources that
+// belong to it. /config and /runtime name the supervisor's generation, so the
+// rule dictionaries have to use the same id: a client binds a rule to the
+// configuration it will rewrite by comparing the two before it writes.
+func (p *nativeAPIProvider) generationID(fallback string) string {
+	if active := p.supervisor.activeSnapshot(); active != nil && active.id != "" {
+		return active.id
+	}
+	return fallback
 }
 
 // ruleSource maps the file and line a rule was read from to the contract's

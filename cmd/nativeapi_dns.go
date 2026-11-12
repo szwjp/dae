@@ -356,7 +356,7 @@ func (p *nativeAPIProvider) DnsRules(ctx context.Context) (nativeapi.DnsRuleList
 		return nativeapi.DnsRuleList{}, err
 	}
 	snapshot := plane.SnapshotDnsRules()
-	list := nativeapi.DnsRuleList{GenerationID: snapshot.GenerationID}
+	list := nativeapi.DnsRuleList{GenerationID: p.generationID(snapshot.GenerationID)}
 	list.Request = p.nativeDnsRules("request", snapshot.Request, snapshot.RequestFallback)
 	list.Response = p.nativeDnsRules("response", snapshot.Response, snapshot.ResponseFallback)
 	return list, nil
