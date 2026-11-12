@@ -644,7 +644,7 @@ type EbpfRoutingSummary struct {
 type EbpfDetail struct {
 	EbpfSummary
 	Attachments []EbpfAttachment `json:"attachments,omitempty"`
-	Maps        *EbpfMaps        `json:"maps"`
+	Maps        *EbpfMaps        `json:"maps,omitempty"`
 }
 
 type EbpfAttachment struct {

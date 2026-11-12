@@ -159,15 +159,20 @@ func sourcePaths(all []configSourceFile) []string {
 // 400 rather than a 404 because the request itself is disallowed.
 var errHiddenSourceRef = &nativeapi.APIError{Status: 400, Code: "invalid_request", Message: "config source cannot be referenced"}
 
-// readOnlyReason explains why s cannot be written; it is empty when s is writable.
-func (e *configEditor) readOnlyReason(all []configSourceFile, s configSourceFile) string {
+// sourceWritability explains whether s may be written and, when the contract has a word for it, why not. The
+// contract's enum has no value for the entry file or an unmanaged tree, so those two report only that the source is
+// read-only; the tree's own reason travels in x-dae.
+func (e *configEditor) sourceWritability(all []configSourceFile, s configSourceFile) (bool, string) {
 	if ok, reason := e.layoutOK(all); !ok {
-		return reason
+		if reason == "writes_disabled" {
+			return false, reason
+		}
+		return false, ""
 	}
 	if !e.sourceWritable(s) {
-		return "entry_source"
+		return false, ""
 	}
-	return ""
+	return true, ""
 }
 
 // layoutOK is the write gate: the feature flag plus the managed layout.
@@ -283,7 +288,7 @@ func (e *configEditor) scrub(text string) string {
 	return strings.ReplaceAll(text, hiddenConfigSourceName, hiddenSourceLabel)
 }
 
-func (e *configEditor) sourceView(s configSourceFile, readOnlyReason string) (nativeapi.ConfigSource, bool) {
+func (e *configEditor) sourceView(s configSourceFile, writable bool, readOnlyReason string) (nativeapi.ConfigSource, bool) {
 	content, masked := maskSource(string(s.raw))
 	view := nativeapi.ConfigSource{
 		ConfigSourceContent: nativeapi.ConfigSourceContent{
@@ -295,7 +300,7 @@ func (e *configEditor) sourceView(s configSourceFile, readOnlyReason string) (na
 			Content:       content,
 			LineCount:     strings.Count(content, "\n") + 1,
 		},
-		Writable:       readOnlyReason == "",
+		Writable:       writable,
 		ReadOnlyReason: readOnlyReason,
 		LoadedAt:       s.modTime,
 	}
@@ -320,7 +325,8 @@ func (e *configEditor) GetConfig(ctx context.Context) (nativeapi.EffectiveConfig
 		Diagnostics:  []nativeapi.ConfigDiagnostic{},
 	}
 	for _, s := range visible {
-		view, masked := e.sourceView(s, e.readOnlyReason(all, s))
+		writable, reason := e.sourceWritability(all, s)
+		view, masked := e.sourceView(s, writable, reason)
 		if masked {
 			result.SecretsRedacted = true
 		}
@@ -372,7 +378,8 @@ func (e *configEditor) GetConfigSource(ctx context.Context, sourceID string) (na
 	if err != nil {
 		return nativeapi.ConfigSourceContent{}, false, err
 	}
-	view, masked := e.sourceView(s, e.readOnlyReason(all, s))
+	writable, reason := e.sourceWritability(all, s)
+	view, masked := e.sourceView(s, writable, reason)
 	return view.ConfigSourceContent, !masked, nil
 }
 
