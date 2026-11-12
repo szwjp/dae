@@ -8,7 +8,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/daeuniverse/dae/component/nativeapi"
@@ -57,7 +59,7 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 			Expression: rule.Expression,
 			Outbound:   rule.Outbound,
 			Must:       rule.Must,
-			Source:     nil,
+			Source:     p.ruleSource(rule.File, rule.Line),
 			Kind:       "rule",
 		})
 	}
@@ -72,6 +74,33 @@ func (p *nativeAPIProvider) RoutingRules(ctx context.Context) (nativeapi.RuleLis
 		Kind:       "fallback",
 	})
 	return list, nil
+}
+
+// ruleSource maps the file and line a rule was read from to the contract's
+// source view: the id of the configuration source that holds it, the path the
+// source list reports, and the 1-based line.
+//
+// A file outside the configuration tree is not reported at all, so a rule that
+// was built from something else never leaks an absolute path; the hidden api
+// source is skipped for the same reason it is absent from the source list.
+func (p *nativeAPIProvider) ruleSource(file string, line int) *nativeapi.RuleSource {
+	if p.config == nil || file == "" || line <= 0 {
+		return nil
+	}
+	abs := filepath.Clean(file)
+	if abs != p.config.mainPath && filepath.Base(abs) == hiddenConfigSourceName {
+		return nil
+	}
+	rel, err := filepath.Rel(p.config.baseDir, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil
+	}
+	rel = filepath.ToSlash(rel)
+	return &nativeapi.RuleSource{
+		File:     rel,
+		SourceID: sourceIDFor(rel),
+		Line:     uint64(line),
+	}
 }
 
 // RuntimeOutbounds projects the process-level per-outbound counters.

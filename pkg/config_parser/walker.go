@@ -259,6 +259,7 @@ func (w *Walker) parseRoutingRule(ctx dae_config.IRoutingRuleContext) *RoutingRu
 	return &RoutingRule{
 		AndFunctions: andFunctions,
 		Outbound:     *outbound,
+		Line:         ctx.GetStart().GetLine(),
 	}
 }
 

@@ -23,6 +23,10 @@ type RoutingRuleSnapshot struct {
 	// keeps matching. Must alone cannot distinguish it from proxy(must), which
 	// stops at its own rule.
 	MustRules bool
+	// File and Line locate the rule in the configuration it was read from;
+	// empty when the rule was built in memory and has no source text.
+	File string
+	Line int
 }
 
 // RoutingRulesSnapshot is the complete rule dictionary of one generation.
@@ -59,6 +63,8 @@ func snapshotConfiguredRules(rules []*config_parser.RoutingRule, fallback config
 			Outbound:   outbound,
 			Must:       must,
 			MustRules:  mustRules,
+			File:       rule.File,
+			Line:       rule.Line,
 		})
 	}
 	parsed, err := config.ParseFunctionOrString(fallback)

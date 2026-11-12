@@ -357,12 +357,12 @@ func (p *nativeAPIProvider) DnsRules(ctx context.Context) (nativeapi.DnsRuleList
 	}
 	snapshot := plane.SnapshotDnsRules()
 	list := nativeapi.DnsRuleList{GenerationID: snapshot.GenerationID}
-	list.Request = nativeDnsRules("request", snapshot.Request, snapshot.RequestFallback)
-	list.Response = nativeDnsRules("response", snapshot.Response, snapshot.ResponseFallback)
+	list.Request = p.nativeDnsRules("request", snapshot.Request, snapshot.RequestFallback)
+	list.Response = p.nativeDnsRules("response", snapshot.Response, snapshot.ResponseFallback)
 	return list, nil
 }
 
-func nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback control.DnsRuleSnapshot) []nativeapi.DnsRoutingRule {
+func (p *nativeAPIProvider) nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback control.DnsRuleSnapshot) []nativeapi.DnsRoutingRule {
 	result := make([]nativeapi.DnsRoutingRule, 0, len(rules)+1)
 	for index, rule := range rules {
 		action := nativeDnsAction(kind, rule.Action)
@@ -372,6 +372,7 @@ func nativeDnsRules(kind string, rules []control.DnsRuleSnapshot, fallback contr
 			Expression: rule.Expression,
 			Action:     action,
 			Upstream:   nativeDnsUpstreamOf(action, rule.Action, rule.Upstream),
+			Source:     p.ruleSource(rule.File, rule.Line),
 			Kind:       "rule",
 		})
 	}

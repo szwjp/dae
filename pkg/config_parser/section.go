@@ -87,6 +87,25 @@ type Section struct {
 	// text it was parsed from. They are only meaningful for single-file parses.
 	StartLine int
 	EndLine   int
+	// File is the file the section was parsed from, set by the merger that read
+	// it. A section merged from several files keeps one name, so each item
+	// carries its own file as well.
+	File string
+}
+
+// SetFile records the file the section was parsed from. The merger calls it for
+// every file it reads. A rule keeps its own file as well, because a merged
+// section can hold rules from more than one file.
+func (s *Section) SetFile(file string) {
+	s.File = file
+	for _, item := range s.Items {
+		if item == nil {
+			continue
+		}
+		if rule, ok := item.Value.(*RoutingRule); ok {
+			rule.File = file
+		}
+	}
 }
 
 func (s *Section) String(compact bool, quoteVal bool) string {
@@ -225,6 +244,11 @@ func (p *paramAndFunctions) String(compact bool, quoteVal bool) string {
 type RoutingRule struct {
 	AndFunctions []*Function
 	Outbound     Function
+	// File and Line locate the rule in the configuration it was read from: File
+	// is the absolute path the merger read, Line the 1-based line the rule
+	// starts on. Both are zero for a rule built in memory.
+	File string
+	Line int
 }
 
 func (r *RoutingRule) String(replaceParamWithN bool, compact bool, quoteVal bool) string {

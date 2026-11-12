@@ -51,7 +51,9 @@ func TestNativeDnsRulesProjectConfiguredForm(t *testing.T) {
 		{Expression: "qtype(aaaa) -> reject", Action: "reject"},
 	}
 	fallback := control.DnsRuleSnapshot{Expression: "fallback: googledns", Action: "googledns"}
-	projected := nativeDnsRules("request", rules, fallback)
+	// A provider without a configuration editor has no source to resolve, which
+	// is the in-memory case these snapshots come from.
+	projected := (&nativeAPIProvider{}).nativeDnsRules("request", rules, fallback)
 	if len(projected) != 3 {
 		t.Fatalf("len = %d, want 2 rules and 1 fallback", len(projected))
 	}

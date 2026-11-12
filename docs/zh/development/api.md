@@ -184,6 +184,13 @@ key 最优成员的 `delta_to_best_ms`。`rank` 是瞬时排名，而组的选�
 `max_rules` 就是路由字典容量（1<<20），因此整个字典一定一次返回，也没有
 `410 snapshot_expired`。
 
+每条规则还会报告它写在哪里：`source.file` 是相对入口文件目录的路径，
+`source.source_id` 与 `GET /api/v1/config` 列出的该文件 id 一致，`source.line` 是规则
+起始的 1-based 行号。内存中构造的规则、以及文件落在配置树之外的规则报告
+`source: null`；被隐藏的 `api.dae` 永远不会出现。`/api/v1/dns/rules` 下的规则同样带这
+三个字段。面板因此可以在持有该规则的 file 里改写它，不必猜它来自哪个 include。
+fallback 没有来源：它的文本来自参数合并，而不是某一行规则。
+
 `GET /api/v1/providers` 按订阅 tag 归并节点。`node` 段与无 tag 的订阅合并为可编辑的
 `inline` provider（`p_inline`），其他 tag 为 `p_` 加 tag 哈希，因此只要 tag 不变，
 provider ID（以及节点的 `provider_id`）跨 reload 稳定。`node_count` 取自当前

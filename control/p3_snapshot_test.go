@@ -33,6 +33,19 @@ func TestSnapshotConfiguredRules(t *testing.T) {
 	if fallback != "direct" {
 		t.Fatalf("fallback = %q", fallback)
 	}
+	// A rule read from a file keeps its file and line: the API reports both so a
+	// panel can rewrite the rule where it was written.
+	sourceRules, _ := snapshotConfiguredRules([]*config_parser.RoutingRule{{
+		AndFunctions: []*config_parser.Function{
+			{Name: "pname", Params: []*config_parser.Param{{Val: "curl"}}},
+		},
+		Outbound: config_parser.Function{Name: "proxy"},
+		File:     "/etc/dae/config.d/routing.dae",
+		Line:     3,
+	}}, "direct")
+	if len(sourceRules) != 1 || sourceRules[0].File != "/etc/dae/config.d/routing.dae" || sourceRules[0].Line != 3 {
+		t.Fatalf("source = %#v", sourceRules)
+	}
 }
 
 func TestFlowHistoryRetentionAndLookup(t *testing.T) {

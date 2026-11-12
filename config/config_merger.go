@@ -135,6 +135,14 @@ func (m *Merger) readEntry(entry string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to parse config file %v:\n%w", entry, err)
 	}
+	// The rule dictionary reports where each rule was written, so every section
+	// and rule keeps the file it came from. The API resolves that to a source
+	// id, which is derived from a path relative to the entry's directory, so the
+	// absolute path is what is recorded here.
+	absEntry := absCleanPath(entry)
+	for _, sec := range entrySections {
+		sec.SetFile(absEntry)
+	}
 	m.entryToSectionMap[entry] = m.convertSectionsToMap(entrySections)
 	for _, sec := range entrySections {
 		m.origins[sec.Name] = append(m.origins[sec.Name], SectionOrigin{

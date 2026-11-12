@@ -239,6 +239,16 @@ resource never paginates: `max_rules` is the routing dictionary capacity
 (1<<20), so the complete dictionary always fits in one response and there is no
 `410 snapshot_expired` for it.
 
+Every rule also reports where it was written: `source.file` is the path relative
+to the entry file's directory, `source.source_id` is the id `GET /api/v1/config`
+lists for that file, and `source.line` is the 1-based line the rule starts on.
+A rule built in memory reports `source: null`, as does one whose file lies outside
+the configuration tree; the hidden `api.dae` is never named. The same fields are
+reported for the rules under `/api/v1/dns/rules`. A panel can therefore rewrite a
+rule in the file that holds it instead of guessing which include it came from.
+The fallback entry has no source, because its text is merged from a parameter
+rather than read as a rule line.
+
 `GET /api/v1/providers` groups the node inventory by subscription tag. The node
 section and untagged subscriptions form the editable `inline` provider
 (`p_inline`); every other tag becomes `p_` plus a hash of the tag, so a

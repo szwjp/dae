@@ -15,6 +15,10 @@ type DnsRuleSnapshot struct {
 	Expression string
 	Action     string
 	Upstream   string
+	// File and Line locate the rule in the configuration it was read from;
+	// empty when the rule was built in memory and has no source text.
+	File string
+	Line int
 }
 
 // DnsRulesSnapshot is the complete DNS request/response rule dictionary.
@@ -50,6 +54,8 @@ func renderDnsRuleList(rules []*config_parser.RoutingRule) []DnsRuleSnapshot {
 		snapshot := DnsRuleSnapshot{
 			Expression: rule.String(false, false, false),
 			Action:     rule.Outbound.Name,
+			File:       rule.File,
+			Line:       rule.Line,
 		}
 		if len(rule.Outbound.Params) > 0 {
 			snapshot.Upstream = rule.Outbound.Params[0].String(false, true)
