@@ -95,15 +95,21 @@ type Section struct {
 
 // SetFile records the file the section was parsed from. The merger calls it for
 // every file it reads. A rule keeps its own file as well, because a merged
-// section can hold rules from more than one file.
+// section can hold rules from more than one file, and nested sections (a DNS
+// list is `dns { routing { request { … } } }`) hold their own rules: walking
+// only the direct items left those rules without a file, so the API could not
+// say where they were written and clients had to show them read-only.
 func (s *Section) SetFile(file string) {
 	s.File = file
 	for _, item := range s.Items {
 		if item == nil {
 			continue
 		}
-		if rule, ok := item.Value.(*RoutingRule); ok {
-			rule.File = file
+		switch value := item.Value.(type) {
+		case *RoutingRule:
+			value.File = file
+		case *Section:
+			value.SetFile(file)
 		}
 	}
 }

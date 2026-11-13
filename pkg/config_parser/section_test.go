@@ -183,3 +183,48 @@ func findParamByKey(t *testing.T, sections []*Section, key string) *Param {
 	t.Fatalf("param %q not found", key)
 	return nil
 }
+
+func TestSetFileReachesNestedSectionRules(t *testing.T) {
+	sections, err := Parse(`dns {
+  routing {
+    request {
+      qname(geosite:cn) -> alidns
+      fallback: cloudflare
+    }
+  }
+}
+routing {
+  fallback: direct
+}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	for _, section := range sections {
+		section.SetFile("/etc/dae/config.d/dns.dae")
+	}
+
+	var nested []*RoutingRule
+	var walk func(s *Section)
+	walk = func(s *Section) {
+		for _, item := range s.Items {
+			switch value := item.Value.(type) {
+			case *RoutingRule:
+				nested = append(nested, value)
+			case *Section:
+				walk(value)
+			}
+		}
+	}
+	for _, section := range sections {
+		walk(section)
+	}
+	// `fallback:` is a declaration, not a rule, so only the qname rule is found.
+	if len(nested) != 1 {
+		t.Fatalf("expected 1 nested rule, got %d", len(nested))
+	}
+	for _, rule := range nested {
+		if rule.File != "/etc/dae/config.d/dns.dae" {
+			t.Fatalf("rule %q has file %q, want the nested section's file", rule.String(false, false, false), rule.File)
+		}
+	}
+}
