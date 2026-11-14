@@ -258,3 +258,24 @@ func (c *ControlPlane) SetDNSHandoffController(controller *DnsController) {
 	defer c.dnsHandoffMu.Unlock()
 	c.dnsHandoffController.Store(controller)
 }
+
+// SetDnsLogCapacity resizes the active DNS query log ring.
+func (c *ControlPlane) SetDnsLogCapacity(capacity int) {
+	if c == nil {
+		return
+	}
+	if controller := c.ActiveDnsController(); controller != nil {
+		controller.SetDnsLogCapacity(capacity)
+	}
+}
+
+// DnsLogCapacity reports the active DNS query log ring's capacity.
+func (c *ControlPlane) DnsLogCapacity() int {
+	if c == nil {
+		return 0
+	}
+	if controller := c.ActiveDnsController(); controller != nil {
+		return controller.DnsLogCapacity()
+	}
+	return 0
+}

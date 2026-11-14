@@ -187,11 +187,13 @@ type SessionManager struct {
 	udpBPF     atomic.Pointer[bpfObjects]
 	pinnedUDP  map[bpfTuplesKey]int
 
-	flowHistoryMu       sync.Mutex
-	flowHistory         []SessionFlowHistoryEntry
-	flowHistoryStart    int
-	flowHistoryLen      int
-	flowHistoryRevision uint64
+	flowHistoryMu        sync.Mutex
+	flowHistory          []SessionFlowHistoryEntry
+	flowHistoryStart     int
+	flowHistoryLen       int
+	flowHistoryRevision  uint64
+	flowHistoryCapacity  int
+	flowHistoryRetention time.Duration
 
 	closeOnce sync.Once
 	closeErr  error

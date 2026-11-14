@@ -211,6 +211,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		}
 		resources["dns_log"] = map[string]any{
 			"available":     true,
+			"min_records":   1,
 			"max_records":   DnsLogMaxRecords,
 			"max_page_size": DnsLogMaxPageSize,
 		}
@@ -262,6 +263,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"available":            true,
 			"recording":            s.flowRecordingPolicy(),
 			"scopes":               []string{"userspace_tcp", "userspace_udp"},
+			"min_flows":            1,
 			"max_flows":            2048,
 			"max_steps_per_flow":   1,
 			"retention_seconds":    900,
@@ -277,6 +279,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 			"levels":               s.logs.LogLevels(),
 			"filters":              s.logs.LogFilters(),
 			"retention_seconds":    LogRetentionSeconds,
+			"min_buffered_records": 1,
 			"max_buffered_records": LogMaxBufferedRecords,
 		}
 	} else {

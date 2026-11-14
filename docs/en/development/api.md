@@ -442,7 +442,8 @@ datapath and never reaches a counter, so the row could only ever report zeros.
 `log.level` and each recorder's `allowed`, `mode` and `active` state. `PATCH`
 merges a subset of the settings and answers the same document.
 `capabilities.resources.runtime_settings.fields` lists what this engine accepts
-without a reload: `log.level`, `record_flows`, `record_logs` and
+without a reload: `log.level`, `log.buffered_records`, `dns_log.max_records`,
+`flows.max_flows`, `flows.retention_seconds`, `record_flows`, `record_logs` and
 `record_dns_log`.
 
 - `log.level` changes the running logger immediately. It is process state only:
@@ -452,12 +453,17 @@ without a reload: `log.level`, `record_flows`, `record_logs` and
   bookkeeping (`/flows` history and per-flow byte counters), the DNS log ring or
   the log replay ring. Turning `record_logs` off also stops frames reaching
   `/logs` subscribers, because the ring is the channel.
+- the ring fields resize in place and keep the newest records. A shrink drops
+  the oldest ones, so a cursor that named a dropped record is reported expired
+  by the next stream open or log read instead of skipping a gap. The advertised
+  maxima (`logs.max_buffered_records`, `dns_log.max_records`,
+  `flows.max_flows`, `flows.retention_seconds`) are the bounds a PATCH may not
+  exceed.
 - `source` stays `config` until a PATCH changes something, then reads
   `runtime`. Nothing is written to the configuration file: the next successful
   reload resets every mode to `auto` and re-applies the configured log level.
-- Contract fields this engine does not implement (`log.buffered_records`,
-  `flows.max_flows`, `flows.retention_seconds`, `dns_log.max_records`,
-  `geodata`) answer `422 unsupported_value` instead of being silently ignored.
+- Contract fields this engine does not implement (`geodata`) answer
+  `422 unsupported_value` instead of being silently ignored.
 
 `active` reports the engine's live state rather than the requested mode, and
 `resources.flows.recording` follows the same flow mode.

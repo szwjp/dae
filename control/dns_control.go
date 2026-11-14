@@ -144,12 +144,13 @@ type dnsControllerStore struct {
 	// shared store so a reload that reuses the DNS controller keeps it.
 	// dnsLogEpoch names this store. A replaced store restarts the record ids,
 	// so a cursor from the previous one must not resolve against the new log.
-	dnsLogEpoch uint64
-	dnsLogMu    sync.Mutex
-	dnsLogSeq   uint64
-	dnsLogRing  []dnsLogRecord
-	dnsLogStart int
-	dnsLogLen   int
+	dnsLogEpoch    uint64
+	dnsLogMu       sync.Mutex
+	dnsLogSeq      uint64
+	dnsLogRing     []dnsLogRecord
+	dnsLogStart    int
+	dnsLogLen      int
+	dnsLogCapacity int
 
 	janitorStop  chan struct{}
 	janitorDone  chan struct{}

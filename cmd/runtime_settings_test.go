@@ -22,8 +22,8 @@ func newTestRuntimeSettings(t *testing.T) (*runtimeSettings, *logrus.Logger, *fr
 	log.SetLevel(logrus.InfoLevel)
 	control.ConfigureFlowStats(true)
 	control.ConfigureDnsLog(true)
-	hub := newFrameHub("instance-test", "logs", 8, time.Minute, 1)
-	settings := newRuntimeSettings(log, hub)
+	hub := newFrameHub("instance-test", "logs", nativeapi.LogMaxBufferedRecords, time.Minute, 1)
+	settings := newRuntimeSettings(log, hub, nil)
 	t.Cleanup(func() {
 		control.ConfigureFlowStats(true)
 		control.ConfigureDnsLog(true)
@@ -45,6 +45,16 @@ func TestRuntimeSettingsDefaults(t *testing.T) {
 	if got.Log == nil || got.Log.Level != "info" {
 		t.Fatalf("log = %#v", got.Log)
 	}
+	if got.Log.BufferedRecords == nil || *got.Log.BufferedRecords != nativeapi.LogMaxBufferedRecords {
+		t.Fatalf("buffered_records = %#v", got.Log.BufferedRecords)
+	}
+	if got.DNSLog == nil || got.DNSLog.MaxRecords != nativeapi.DnsLogMaxRecords {
+		t.Fatalf("dns_log = %#v", got.DNSLog)
+	}
+	if got.Flows == nil || got.Flows.MaxFlows != control.FlowHistoryCapacity ||
+		got.Flows.RetentionSeconds != uint64(control.FlowHistoryRetention/time.Second) {
+		t.Fatalf("flows = %#v", got.Flows)
+	}
 	if got.Recording == nil || got.Recording.Flows == nil || got.Recording.Logs == nil || got.Recording.DNSLog == nil {
 		t.Fatalf("recording = %#v", got.Recording)
 	}
@@ -58,7 +68,7 @@ func TestRuntimeSettingsDefaults(t *testing.T) {
 	if !control.FlowStatsEnabled() || !control.DnsLogEnabled() || !hub.Recording() {
 		t.Fatal("recorders are not running at startup")
 	}
-	if fields := settings.RuntimeSettingFields(); len(fields) != 4 {
+	if fields := settings.RuntimeSettingFields(); len(fields) != 8 {
 		t.Fatalf("fields = %#v", fields)
 	}
 	if log.GetLevel() != logrus.InfoLevel {
@@ -130,11 +140,96 @@ func TestRuntimeSettingsPatchLogLevel(t *testing.T) {
 	}
 }
 
+func TestRuntimeSettingsPatchLogCapacity(t *testing.T) {
+	settings, _, hub := newTestRuntimeSettings(t)
+	ctx := context.Background()
+
+	capacity := uint64(64)
+	updated, err := settings.PatchRuntimeSettings(ctx, nativeapi.RuntimeSettingsPatch{
+		Log: &nativeapi.RuntimeLogPatch{BufferedRecords: &capacity},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Log.BufferedRecords == nil || *updated.Log.BufferedRecords != 64 {
+		t.Fatalf("buffered_records = %#v", updated.Log.BufferedRecords)
+	}
+	if got := hub.Capacity(); got != 64 {
+		t.Fatalf("hub capacity = %d, want 64", got)
+	}
+	if updated.Source != "runtime" {
+		t.Fatalf("source = %q", updated.Source)
+	}
+
+	tooLarge := uint64(nativeapi.LogMaxBufferedRecords + 1)
+	if _, err := settings.PatchRuntimeSettings(ctx, nativeapi.RuntimeSettingsPatch{
+		Log: &nativeapi.RuntimeLogPatch{BufferedRecords: &tooLarge},
+	}); err == nil {
+		t.Fatal("oversized capacity was accepted")
+	}
+	zero := uint64(0)
+	if _, err := settings.PatchRuntimeSettings(ctx, nativeapi.RuntimeSettingsPatch{
+		Log: &nativeapi.RuntimeLogPatch{BufferedRecords: &zero},
+	}); err == nil {
+		t.Fatal("zero capacity was accepted")
+	}
+
+	settings.Reset()
+	if got := hub.Capacity(); got != nativeapi.LogMaxBufferedRecords {
+		t.Fatalf("hub capacity after reset = %d", got)
+	}
+}
+
+func TestRuntimeSettingsDNSCapacityNeedsActiveGeneration(t *testing.T) {
+	settings, _, _ := newTestRuntimeSettings(t)
+	capacity := uint64(64)
+	_, err := settings.PatchRuntimeSettings(context.Background(), nativeapi.RuntimeSettingsPatch{
+		DNSLog: &nativeapi.RuntimeDNSLogPatch{MaxRecords: &capacity},
+	})
+	apiErr, ok := err.(*nativeapi.APIError)
+	if !ok || apiErr.Status != http.StatusServiceUnavailable {
+		t.Fatalf("err = %v, want 503", err)
+	}
+}
+
+func TestRuntimeSettingsFlowLimitsValidation(t *testing.T) {
+	settings, _, _ := newTestRuntimeSettings(t)
+	ctx := context.Background()
+	tooMany := uint64(control.FlowHistoryCapacity + 1)
+	zero := uint64(0)
+	tooLong := uint64(control.FlowHistoryRetention/time.Second) + 1
+
+	for name, patch := range map[string]nativeapi.RuntimeSettingsPatch{
+		"too many flows":    {Flows: &nativeapi.RuntimeFlowsPatch{MaxFlows: &tooMany}},
+		"zero flows":        {Flows: &nativeapi.RuntimeFlowsPatch{MaxFlows: &zero}},
+		"retention too big": {Flows: &nativeapi.RuntimeFlowsPatch{RetentionSeconds: &tooLong}},
+		"retention zero":    {Flows: &nativeapi.RuntimeFlowsPatch{RetentionSeconds: &zero}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := settings.PatchRuntimeSettings(ctx, patch)
+			apiErr, ok := err.(*nativeapi.APIError)
+			if !ok || apiErr.Status != http.StatusBadRequest {
+				t.Fatalf("err = %v, want 400", err)
+			}
+		})
+	}
+}
+
+func TestRuntimeSettingsFlowLimitsNeedActiveGeneration(t *testing.T) {
+	settings, _, _ := newTestRuntimeSettings(t)
+	capacity := uint64(64)
+	_, err := settings.PatchRuntimeSettings(context.Background(), nativeapi.RuntimeSettingsPatch{
+		Flows: &nativeapi.RuntimeFlowsPatch{MaxFlows: &capacity},
+	})
+	apiErr, ok := err.(*nativeapi.APIError)
+	if !ok || apiErr.Status != http.StatusServiceUnavailable {
+		t.Fatalf("err = %v, want 503", err)
+	}
+}
+
 func TestRuntimeSettingsRejectsUnsupportedFields(t *testing.T) {
 	settings, _, _ := newTestRuntimeSettings(t)
 	ctx := context.Background()
-	max := uint64(2048)
-	records := uint64(10)
 	snippet := "x"
 	level := "verbose"
 
@@ -143,9 +238,6 @@ func TestRuntimeSettingsRejectsUnsupportedFields(t *testing.T) {
 		patch nativeapi.RuntimeSettingsPatch
 		code  string
 	}{
-		{"log ring", nativeapi.RuntimeSettingsPatch{Log: &nativeapi.RuntimeLogPatch{BufferedRecords: &records}}, "unsupported_value"},
-		{"flows capacity", nativeapi.RuntimeSettingsPatch{Flows: &nativeapi.RuntimeFlowsPatch{MaxFlows: &max}}, "unsupported_value"},
-		{"dns log capacity", nativeapi.RuntimeSettingsPatch{DNSLog: &nativeapi.RuntimeDNSLogPatch{MaxRecords: &max}}, "unsupported_value"},
 		{"geodata", nativeapi.RuntimeSettingsPatch{Geodata: []byte(`{"auto_update":true}`)}, "unsupported_value"},
 		{"bad level", nativeapi.RuntimeSettingsPatch{Log: &nativeapi.RuntimeLogPatch{Level: &level}}, "unsupported_value"},
 		{"bad mode", nativeapi.RuntimeSettingsPatch{RecordFlows: &snippet}, "invalid_request"},
@@ -231,6 +323,38 @@ func TestFrameHubRecordingGate(t *testing.T) {
 	if got := hubLength(hub); got != 1 {
 		t.Fatalf("hub retained %d frames after resume", got)
 	}
+}
+
+func TestFrameHubResizeKeepsNewest(t *testing.T) {
+	hub := newFrameHub("instance", "logs", 8, time.Minute, 1)
+	for _, value := range []string{"a", "b", "c"} {
+		hub.publish("log", value)
+	}
+	hub.SetCapacity(2)
+	if got := hub.Capacity(); got != 2 {
+		t.Fatalf("capacity = %d, want 2", got)
+	}
+	held := hub.heldFrames()
+	if len(held) != 2 || held[0].data != "b" || held[1].data != "c" {
+		t.Fatalf("held = %#v", held)
+	}
+	hub.SetCapacity(4)
+	if got := hub.Capacity(); got != 4 {
+		t.Fatalf("capacity after grow = %d, want 4", got)
+	}
+	if got := hubLength(hub); got != 2 {
+		t.Fatalf("length after grow = %d, want 2", got)
+	}
+}
+
+func (h *frameHub) heldFrames() []storedFrame {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	frames := make([]storedFrame, 0, h.length)
+	for i := 0; i < h.length; i++ {
+		frames = append(frames, h.frames[(h.start+i)%len(h.frames)])
+	}
+	return frames
 }
 
 func hubLength(h *frameHub) int {

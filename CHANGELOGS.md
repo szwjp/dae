@@ -54,8 +54,9 @@ curl --silent "https://api.github.com/repos/daeuniverse/dae/releases" | jq -r '.
 #### Features
 
 - `GET`/`PATCH /api/v1/runtime/settings` expose settings that apply without a
-  reload: the log level and the flow, log and DNS-log recorders, advertised
-  through `resources.runtime_settings`. A PATCH changes process state only and
+  reload: the log level, the log/DNS-log/flow ring sizes and retention, and the
+  flow, log and DNS-log recorders, advertised through
+  `resources.runtime_settings`. A PATCH changes process state only and
   the next successful reload resets every override to the activated
   configuration.
 - Native API (`api` section) now covers groups, runtime selection, asynchronous operations and traffic history:

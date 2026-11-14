@@ -280,7 +280,7 @@ func (m *SessionManager) appendFlowHistory(flow SessionFlowSnapshot, endedAt tim
 	m.pruneFlowHistoryLocked(endedAt)
 	m.flowHistoryRevision++
 	if m.flowHistory == nil {
-		m.flowHistory = make([]SessionFlowHistoryEntry, FlowHistoryCapacity)
+		m.flowHistory = make([]SessionFlowHistoryEntry, m.flowHistoryCapacityLocked())
 	}
 	entry := SessionFlowHistoryEntry{SessionFlowSnapshot: flow, Revision: m.flowHistoryRevision, EndedAt: endedAt, State: "closed"}
 	if m.flowHistoryLen < len(m.flowHistory) {
@@ -309,8 +309,71 @@ func (m *SessionManager) FlowHistorySnapshots() ([]SessionFlowHistoryEntry, uint
 	return entries, m.flowHistoryRevision
 }
 
+func (m *SessionManager) flowHistoryCapacityLocked() int {
+	if m.flowHistoryCapacity > 0 {
+		return m.flowHistoryCapacity
+	}
+	return FlowHistoryCapacity
+}
+
+func (m *SessionManager) flowHistoryRetentionLocked() time.Duration {
+	if m.flowHistoryRetention > 0 {
+		return m.flowHistoryRetention
+	}
+	return FlowHistoryRetention
+}
+
+// SetFlowHistoryLimits resizes the retained closed-flow history and changes
+// how long an entry may live. A shrink keeps the newest entries and lets the
+// next read reject a cursor that named a dropped one.
+func (m *SessionManager) SetFlowHistoryLimits(capacity int, retention time.Duration) {
+	if m == nil {
+		return
+	}
+	m.flowHistoryMu.Lock()
+	defer m.flowHistoryMu.Unlock()
+	if capacity > 0 {
+		m.flowHistoryCapacity = capacity
+	}
+	if retention > 0 {
+		m.flowHistoryRetention = retention
+	}
+	if m.flowHistory != nil {
+		limit := capacity
+		if limit <= 0 {
+			limit = len(m.flowHistory)
+		}
+		keep := m.flowHistoryLen
+		if keep > limit {
+			keep = limit
+		}
+		if limit != len(m.flowHistory) {
+			ring := make([]SessionFlowHistoryEntry, limit)
+			for i := 0; i < keep; i++ {
+				ring[i] = m.flowHistory[(m.flowHistoryStart+m.flowHistoryLen-keep+i)%len(m.flowHistory)]
+			}
+			m.flowHistory = ring
+			m.flowHistoryStart = 0
+			m.flowHistoryLen = keep
+		}
+	}
+	m.pruneFlowHistoryLocked(time.Now())
+}
+
+// FlowHistoryLimits reports the current capacity and retention.
+func (m *SessionManager) FlowHistoryLimits() (int, time.Duration) {
+	if m == nil {
+		return FlowHistoryCapacity, FlowHistoryRetention
+	}
+	m.flowHistoryMu.Lock()
+	defer m.flowHistoryMu.Unlock()
+	capacity := m.flowHistoryCapacityLocked()
+	retention := m.flowHistoryRetentionLocked()
+	return capacity, retention
+}
+
 func (m *SessionManager) pruneFlowHistoryLocked(now time.Time) {
-	cutoff := now.Add(-FlowHistoryRetention)
+	cutoff := now.Add(-m.flowHistoryRetentionLocked())
 	for m.flowHistoryLen > 0 {
 		oldest := m.flowHistory[m.flowHistoryStart]
 		if !oldest.EndedAt.Before(cutoff) {
@@ -330,6 +393,31 @@ func (m *SessionManager) FlowHistoryEntryByID(id string) (SessionFlowHistoryEntr
 		}
 	}
 	return SessionFlowHistoryEntry{}, false
+}
+
+// SetFlowHistoryLimits resizes the active generation's closed-flow history.
+func (c *ControlPlane) SetFlowHistoryLimits(capacity int, retention time.Duration) bool {
+	if c == nil {
+		return false
+	}
+	manager := c.activeSessionManager()
+	if manager == nil {
+		return false
+	}
+	manager.SetFlowHistoryLimits(capacity, retention)
+	return true
+}
+
+// FlowHistoryLimits reports the active generation's closed-flow history limits.
+func (c *ControlPlane) FlowHistoryLimits() (int, time.Duration) {
+	if c == nil {
+		return FlowHistoryCapacity, FlowHistoryRetention
+	}
+	manager := c.activeSessionManager()
+	if manager == nil {
+		return FlowHistoryCapacity, FlowHistoryRetention
+	}
+	return manager.FlowHistoryLimits()
 }
 
 func (c *ControlPlane) activeSessionManager() *SessionManager {

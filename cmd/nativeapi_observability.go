@@ -134,6 +134,46 @@ func (h *frameHub) Recording() bool {
 	return h.recording.Load()
 }
 
+// SetCapacity resizes the ring, keeping the newest frames. Shrinking drops the
+// oldest records, so a cursor that named one of them is reported expired by the
+// next open instead of resuming against a gap.
+func (h *frameHub) SetCapacity(capacity int) {
+	if h == nil {
+		return
+	}
+	if capacity <= 0 {
+		capacity = 1
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if capacity == len(h.frames) {
+		h.capacity = capacity
+		return
+	}
+	keep := h.length
+	if keep > capacity {
+		keep = capacity
+	}
+	frames := make([]storedFrame, capacity)
+	for i := 0; i < keep; i++ {
+		frames[i] = h.frames[(h.start+h.length-keep+i)%len(h.frames)]
+	}
+	h.frames = frames
+	h.start = 0
+	h.length = keep
+	h.capacity = capacity
+}
+
+// Capacity reports the ring's current capacity in frames.
+func (h *frameHub) Capacity() int {
+	if h == nil {
+		return 0
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.frames)
+}
+
 func (h *frameHub) pruneLocked(now time.Time) {
 	cutoff := now.Add(-h.retention)
 	for h.length > 0 {

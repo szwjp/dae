@@ -14,10 +14,14 @@ import (
 // field outside this list is defined by the contract but answers
 // 422 unsupported_value on this engine.
 const (
-	RuntimeSettingLogLevel    = "log.level"
-	RuntimeSettingRecordFlows = "record_flows"
-	RuntimeSettingRecordLogs  = "record_logs"
-	RuntimeSettingRecordDNS   = "record_dns_log"
+	RuntimeSettingLogLevel           = "log.level"
+	RuntimeSettingLogBufferedRecords = "log.buffered_records"
+	RuntimeSettingDNSLogMaxRecords   = "dns_log.max_records"
+	RuntimeSettingFlowsMaxFlows      = "flows.max_flows"
+	RuntimeSettingFlowsRetention     = "flows.retention_seconds"
+	RuntimeSettingRecordFlows        = "record_flows"
+	RuntimeSettingRecordLogs         = "record_logs"
+	RuntimeSettingRecordDNS          = "record_dns_log"
 )
 
 // RuntimeSettings is the GET /runtime/settings document. Every section is
@@ -27,6 +31,8 @@ type RuntimeSettings struct {
 	ObservedAt string                  `json:"observed_at"`
 	Source     string                  `json:"source"`
 	Log        *RuntimeLogSettings     `json:"log,omitempty"`
+	DNSLog     *RuntimeDNSLogSettings  `json:"dns_log,omitempty"`
+	Flows      *RuntimeFlowsSettings   `json:"flows,omitempty"`
 	Recording  *RuntimeRecordingStates `json:"recording,omitempty"`
 }
 
@@ -38,6 +44,17 @@ type RuntimeLogSettings struct {
 }
 
 // RuntimeRecordingStates reports each recorder's allowed/mode/active state.
+// RuntimeDNSLogSettings is the dns_log section.
+type RuntimeDNSLogSettings struct {
+	MaxRecords uint64 `json:"max_records"`
+}
+
+// RuntimeFlowsSettings is the flows section.
+type RuntimeFlowsSettings struct {
+	MaxFlows         uint64 `json:"max_flows,omitempty"`
+	RetentionSeconds uint64 `json:"retention_seconds,omitempty"`
+}
+
 type RuntimeRecordingStates struct {
 	Flows  *RecorderState `json:"flows,omitempty"`
 	Logs   *RecorderState `json:"logs,omitempty"`

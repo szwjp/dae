@@ -527,7 +527,7 @@ func (r *Runner) Run() (err error) {
 		server.SetEventProvider(provider)
 		server.SetOperationProvider(operations)
 		server.SetProbeProvider(operations)
-		runSettings = newRuntimeSettings(log, logHub)
+		runSettings = newRuntimeSettings(log, logHub, runtimeSupervisor)
 		server.SetRuntimeSettingsProvider(runSettings)
 		w.runtimeSettings = runSettings
 		configSource, err := newConfigEditor(cfgFile, conf.Api, operations, reloadManager, runtimeSupervisor, log)
@@ -660,12 +660,7 @@ loop:
 					}
 					w.log.Infoln("[Reload] Finished")
 					reloadManager.finishReloadSuccess()
-					// The configuration just activated supplies every runtime
-					// setting again; drop the overrides the previous generation
-					// carried.
-					if w.runtimeSettings != nil {
-						w.runtimeSettings.Reset()
-					}
+					w.resetRuntimeSettings()
 					continue
 				}
 				// Serve.
@@ -939,6 +934,7 @@ loop:
 				}
 				w.log.Infoln("[Reload] Finished")
 				reloadManager.finishReloadSuccess()
+				w.resetRuntimeSettings()
 				if dnsHandoffActive && w.log.IsLevelEnabled(logrus.DebugLevel) {
 					w.log.Debugln("[Reload] Shared DNS controller handoff remains available while old generation drains")
 				}

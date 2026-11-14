@@ -335,18 +335,21 @@ builtin `block` 行不再暴露：被封锁的流量在数据面被直接丢弃�
 `GET /api/v1/runtime/settings` 返回 `observed_at`、`source`、当前 `log.level`，以及每个记录器
 的 `allowed`、`mode`、`active`。`PATCH` 合并其中一部分字段并返回同一份文档。
 `capabilities.resources.runtime_settings.fields` 列出本引擎支持免 reload 调整的字段：
-`log.level`、`record_flows`、`record_logs`、`record_dns_log`。
+`log.level`、`log.buffered_records`、`dns_log.max_records`、`flows.max_flows`、
+`flows.retention_seconds`、`record_flows`、`record_logs`、`record_dns_log`。
 
 - `log.level` 立即改变运行中的日志级别；它只作用于进程，reload 会重新应用
   `global.log_level`。
 - `record_*` 取 `auto`、`on` 或 `off`。dae 在记录器开启期间持续记录，因此 `auto` 与 `on`
   等价；`off` 分别释放流记账（`/flows` 历史与按流字节计数）、DNS 日志环或日志重放环。
   关闭 `record_logs` 后 `/logs` 订阅者也收不到新帧，因为环本身就是通道。
+- 环类字段原地缩放并保留最新的记录。缩小时丢弃最旧记录，因此指向被丢弃记录的游标会在下一次
+  打开流或读取日志时返回已过期，而不是跳过一段空缺。能力里的上限
+  （`logs.max_buffered_records`、`dns_log.max_records`、`flows.max_flows`、
+  `flows.retention_seconds`）是 PATCH 不可超过的边界。
 - `source` 在 PATCH 改动之前为 `config`，之后为 `runtime`。设置不会写入配置文件：下一次
   reload 成功后所有 mode 回到 `auto`，日志级别回到配置值。
-- 契约定义但本引擎未实现的字段（`log.buffered_records`、`flows.max_flows`、
-  `flows.retention_seconds`、`dns_log.max_records`、`geodata`）返回
-  `422 unsupported_value`，不会静默忽略。
+- 契约定义但本引擎未实现的字段（`geodata`）返回 `422 unsupported_value`，不会静默忽略。
 
 `active` 反映引擎的实际状态而不是请求的 mode；`resources.flows.recording` 跟随流记录模式。
 

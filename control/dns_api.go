@@ -105,7 +105,11 @@ func (c *DnsController) recordDnsLog(question dnsmessage.Question, req *udpReque
 	store.dnsLogSeq++
 	id := "dl_" + strconv.FormatUint(store.dnsLogSeq, 10)
 	if store.dnsLogRing == nil {
-		store.dnsLogRing = make([]dnsLogRecord, DnsLogCapacity)
+		capacity := store.dnsLogCapacity
+		if capacity <= 0 {
+			capacity = DnsLogCapacity
+		}
+		store.dnsLogRing = make([]dnsLogRecord, capacity)
 	}
 	record := dnsLogRecord{
 		id:         id,
@@ -126,6 +130,56 @@ func (c *DnsController) recordDnsLog(question dnsmessage.Question, req *udpReque
 	}
 	store.dnsLogRing[store.dnsLogStart] = record
 	store.dnsLogStart = (store.dnsLogStart + 1) % len(store.dnsLogRing)
+}
+
+// SetDnsLogCapacity resizes the query log ring, keeping the newest records.
+// Shrinking drops the oldest ones, so a page cursor that named one of them is
+// reported invalid by the next read instead of silently skipping records.
+func (c *DnsController) SetDnsLogCapacity(capacity int) {
+	if c == nil {
+		return
+	}
+	if capacity <= 0 {
+		capacity = 1
+	}
+	store := c.requireStore()
+	store.dnsLogMu.Lock()
+	defer store.dnsLogMu.Unlock()
+	store.dnsLogCapacity = capacity
+	if store.dnsLogRing == nil {
+		return
+	}
+	if capacity == len(store.dnsLogRing) {
+		return
+	}
+	keep := store.dnsLogLen
+	if keep > capacity {
+		keep = capacity
+	}
+	ring := make([]dnsLogRecord, capacity)
+	for i := 0; i < keep; i++ {
+		ring[i] = store.dnsLogRing[(store.dnsLogStart+store.dnsLogLen-keep+i)%len(store.dnsLogRing)]
+	}
+	store.dnsLogRing = ring
+	store.dnsLogStart = 0
+	store.dnsLogLen = keep
+}
+
+// DnsLogCapacity reports the query log ring's current capacity.
+func (c *DnsController) DnsLogCapacity() int {
+	if c == nil || c.dnsControllerStore == nil {
+		return DnsLogCapacity
+	}
+	store := c.dnsControllerStore
+	store.dnsLogMu.Lock()
+	defer store.dnsLogMu.Unlock()
+	if store.dnsLogRing != nil {
+		return len(store.dnsLogRing)
+	}
+	if store.dnsLogCapacity > 0 {
+		return store.dnsLogCapacity
+	}
+	return DnsLogCapacity
 }
 
 // DnsLogEpoch identifies the store behind the DNS log.

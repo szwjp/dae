@@ -77,6 +77,15 @@ func attachPreparedSessionManager(c *control.ControlPlane, manager *control.Sess
 	return nil
 }
 
+// resetRuntimeSettings drops the overrides a published reload supersedes. The
+// new generation has already re-applied its configured log level and record
+// switches; this only returns the modes and ring limits to their defaults.
+func (w *reloadWorker) resetRuntimeSettings() {
+	if w.runtimeSettings != nil {
+		w.runtimeSettings.Reset()
+	}
+}
+
 // run consumes reload requests until the process exits. It is started once by
 // Run and performs no generation publication itself; every prepared candidate
 // is published from Run's signal loop after it reports readiness.
