@@ -100,6 +100,9 @@ provider 可以刷新，inline/file provider 返回 `404 capability_not_supporte
 
 - `api.dae` 被隐藏：不出现在 `sources[]` 中，其 ID 返回 `404 resource_not_found`，与未知 ID 一致。
   能力信息通过 `x-dae.hidden_sources` 体现。
+- `x-dae.listener.listen` 上报 API 实际绑定的地址（如 `0.0.0.0:9527`），
+  `x-dae.listener.anonymous_loopback` 表示回环对端是否可免 token。面板可以把绑定地址
+  与它实际拨号的 URL 并排显示；通配绑定下两者本来就不是同一个字符串。
 - `config.dae` 只读，替换时不得修改 `api` 段。契约的 `read_only_reason` 枚举没有“入口文件”或
   “非托管目录”的取值，因此这些源不报原因；整棵配置树的原因仍在 `x-dae.layout.reason` 中。
 - `GET` 读取磁盘文件，而非已接受的快照。其 `revision` 与

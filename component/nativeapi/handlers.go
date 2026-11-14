@@ -122,6 +122,10 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 				"store":          map[string]any{"kind": "file"},
 				"layout":         map[string]any{"kind": caps.Layout, "reason": caps.LayoutReason},
 				"hidden_sources": caps.HiddenSources,
+				"listener": map[string]any{
+					"listen":             s.cfg.Listen,
+					"anonymous_loopback": s.cfg.AllowAnonymousLoopback,
+				},
 			},
 		}
 		resources["config_validate"] = map[string]any{

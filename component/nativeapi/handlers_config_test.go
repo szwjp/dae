@@ -291,6 +291,10 @@ func TestCapabilitiesAdvertiseConfigLayout(t *testing.T) {
 	if len(hidden) != 1 || hidden[0] != "api.dae" {
 		t.Fatalf("hidden_sources = %v", xdae["hidden_sources"])
 	}
+	listener, _ := xdae["listener"].(map[string]any)
+	if listener["listen"] != "127.0.0.1:9527" || listener["anonymous_loopback"] != true {
+		t.Fatalf("listener = %v", xdae["listener"])
+	}
 	validate, _ := resources["config_validate"].(map[string]any)
 	if validate["available"] != true {
 		t.Fatalf("config_validate = %v", validate)

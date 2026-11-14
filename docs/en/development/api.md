@@ -126,6 +126,10 @@ Deliberate deviations from the contract:
 - `api.dae` is hidden. It is omitted from `sources[]`, and its ID answers
   `404 resource_not_found`, the same as an unknown ID. Capabilities report it in
   `x-dae.hidden_sources`.
+- `x-dae.listener.listen` reports the address the API bound, such as
+  `0.0.0.0:9527`; `x-dae.listener.anonymous_loopback` reports whether loopback
+  peers may omit a token. A panel can show the bind address next to the URL it
+  dials, which are not the same string when the bind is a wildcard.
 - `config.dae` is read-only. A replacement may not change the `api` section.
   The contract's `read_only_reason` enum has no value for the entry file or an
   unmanaged tree, so those sources report no reason; the tree's own reason stays
