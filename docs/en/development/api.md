@@ -18,6 +18,7 @@ Current implementation:
 - `GET /api/v1/runtime/memory` — process, cgroup v2 and eBPF memory
 - `GET /api/v1/runtime/memory/history?window_seconds=&max_points=`
 - `GET /api/v1/runtime/direct-stats` — opt-in direct-traffic counters
+- `GET`/`PATCH /api/v1/runtime/settings` — settings that apply without a reload
 - `GET /api/v1/datapath` — eBPF attachments, routing generation and map occupancy
 - `GET /api/v1/groups`
 - `GET /api/v1/groups/{group_id}`
@@ -86,8 +87,7 @@ the API runs. Only a `subscription` provider can be refreshed — an inline or f
 provider answers `404 capability_not_supported` — and it queues a
 `provider_refresh` operation.
 
-`/api/v1/runtime/settings` and `/api/v1/auth*` answer
-`404 capability_not_supported`. Routing trace availability follows the running
+`/api/v1/auth*` answers `404 capability_not_supported`. Routing trace availability follows the running
 generation; when `routing_trace.available` is false, its endpoint answers the
 same error. Trace is disabled when the generation exceeds 4096 rule steps. It simulates
 routing only: it does not connect or perform DNS
@@ -435,6 +435,32 @@ no outbound owns. With `api.direct_stats` on, that row additionally carries
 kernel-direct link bytes, so the sum exceeds `runtime.traffic.bytes` by that
 amount. The builtin `block` row is not exposed: blocked traffic is dropped in the
 datapath and never reaches a counter, so the row could only ever report zeros.
+
+### Runtime settings
+
+`GET /api/v1/runtime/settings` reports `observed_at`, `source`, the current
+`log.level` and each recorder's `allowed`, `mode` and `active` state. `PATCH`
+merges a subset of the settings and answers the same document.
+`capabilities.resources.runtime_settings.fields` lists what this engine accepts
+without a reload: `log.level`, `record_flows`, `record_logs` and
+`record_dns_log`.
+
+- `log.level` changes the running logger immediately. It is process state only:
+  a reload re-applies `global.log_level`.
+- `record_*` take `auto`, `on` or `off`. dae records continuously while a
+  recorder is enabled, so `auto` and `on` both capture; `off` releases the flow
+  bookkeeping (`/flows` history and per-flow byte counters), the DNS log ring or
+  the log replay ring. Turning `record_logs` off also stops frames reaching
+  `/logs` subscribers, because the ring is the channel.
+- `source` stays `config` until a PATCH changes something, then reads
+  `runtime`. Nothing is written to the configuration file: the next successful
+  reload resets every mode to `auto` and re-applies the configured log level.
+- Contract fields this engine does not implement (`log.buffered_records`,
+  `flows.max_flows`, `flows.retention_seconds`, `dns_log.max_records`,
+  `geodata`) answer `422 unsupported_value` instead of being silently ignored.
+
+`active` reports the engine's live state rather than the requested mode, and
+`resources.flows.recording` follows the same flow mode.
 
 ### Direct traffic
 

@@ -484,6 +484,7 @@ func (r *Runner) Run() (err error) {
 	w.runStateChanges = runStateChanges
 
 	var apiServer *nativeapi.Server
+	var runSettings *runtimeSettings
 	if conf.Api.Enabled {
 		logHub := newFrameHub(rtStatus.snapshot().InstanceID, "logs", nativeapi.LogMaxBufferedRecords, nativeapi.LogRetentionSeconds*time.Second, nativeapi.LogMaxClients)
 		eventHub := newFrameHub(rtStatus.snapshot().InstanceID, "events", nativeapi.EventMaxBufferedEvents, nativeapi.EventRetentionSeconds*time.Second, nativeapi.EventMaxClients)
@@ -526,6 +527,9 @@ func (r *Runner) Run() (err error) {
 		server.SetEventProvider(provider)
 		server.SetOperationProvider(operations)
 		server.SetProbeProvider(operations)
+		runSettings = newRuntimeSettings(log, logHub)
+		server.SetRuntimeSettingsProvider(runSettings)
+		w.runtimeSettings = runSettings
 		configSource, err := newConfigEditor(cfgFile, conf.Api, operations, reloadManager, runtimeSupervisor, log)
 		if err != nil {
 			_ = listener.Close()
@@ -656,6 +660,12 @@ loop:
 					}
 					w.log.Infoln("[Reload] Finished")
 					reloadManager.finishReloadSuccess()
+					// The configuration just activated supplies every runtime
+					// setting again; drop the overrides the previous generation
+					// carried.
+					if w.runtimeSettings != nil {
+						w.runtimeSettings.Reset()
+					}
 					continue
 				}
 				// Serve.

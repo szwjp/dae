@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/daeuniverse/dae/common"
@@ -52,6 +53,10 @@ type frameHub struct {
 	// sweep but registering after it must not resurrect a subscription the
 	// process no longer serves.
 	closed bool
+	// recording gates whether frames enter the ring and reach subscribers.
+	// Runtime settings turn it off without stopping the logger, so a disabled
+	// recorder costs nothing and keeps no history.
+	recording atomic.Bool
 }
 
 func newFrameHub(instanceID, prefix string, capacity int, retention time.Duration, maxClients int) *frameHub {
@@ -61,7 +66,7 @@ func newFrameHub(instanceID, prefix string, capacity int, retention time.Duratio
 	if retention <= 0 {
 		retention = time.Minute
 	}
-	return &frameHub{
+	hub := &frameHub{
 		instanceID: instanceID,
 		prefix:     prefix,
 		capacity:   capacity,
@@ -70,10 +75,12 @@ func newFrameHub(instanceID, prefix string, capacity int, retention time.Duratio
 		frames:     make([]storedFrame, capacity),
 		subs:       make(map[int]*frameSubscriber),
 	}
+	hub.recording.Store(true)
+	return hub
 }
 
 func (h *frameHub) publish(event string, data any) {
-	if h == nil {
+	if h == nil || !h.recording.Load() {
 		return
 	}
 	h.mu.Lock()
@@ -107,6 +114,24 @@ func (h *frameHub) publish(event string, data any) {
 			delete(h.subs, id)
 		}
 	}
+}
+
+// SetRecording turns capture on or off. Off keeps the ring's existing frames
+// until retention prunes them, but drops new ones before they are stored or
+// fanned out, so a disabled recorder does no work per event.
+func (h *frameHub) SetRecording(enabled bool) {
+	if h == nil {
+		return
+	}
+	h.recording.Store(enabled)
+}
+
+// Recording reports whether the hub captures frames right now.
+func (h *frameHub) Recording() bool {
+	if h == nil {
+		return false
+	}
+	return h.recording.Load()
 }
 
 func (h *frameHub) pruneLocked(now time.Time) {

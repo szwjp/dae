@@ -48,24 +48,25 @@ type Server struct {
 	provider RuntimeProvider
 	log      *logrus.Logger
 
-	groups      GroupProvider
-	operations  OperationProvider
-	config      ConfigProvider
-	traffic     TrafficHistoryProvider
-	nodes       NodeProvider
-	outbounds   OutboundProvider
-	memory      MemoryProvider
-	directStats DirectStatsProvider
-	datapath    DatapathProvider
-	rules       RulesProvider
-	providers   ProviderProvider
-	geodata     GeoDataProvider
-	dns         DnsProvider
-	connections ConnectionProvider
-	flows       FlowProvider
-	logs        LogProvider
-	events      EventProvider
-	probes      ProbeProvider
+	groups          GroupProvider
+	operations      OperationProvider
+	config          ConfigProvider
+	traffic         TrafficHistoryProvider
+	nodes           NodeProvider
+	outbounds       OutboundProvider
+	memory          MemoryProvider
+	directStats     DirectStatsProvider
+	datapath        DatapathProvider
+	rules           RulesProvider
+	providers       ProviderProvider
+	geodata         GeoDataProvider
+	dns             DnsProvider
+	connections     ConnectionProvider
+	flows           FlowProvider
+	logs            LogProvider
+	events          EventProvider
+	probes          ProbeProvider
+	runtimeSettings RuntimeSettingsProvider
 
 	httpServer *http.Server
 	listener   net.Listener
@@ -280,6 +281,13 @@ func (s *Server) SetProbeProvider(provider ProbeProvider) {
 	s.probes = provider
 }
 
+func (s *Server) SetRuntimeSettingsProvider(provider RuntimeSettingsProvider) {
+	if s == nil {
+		return
+	}
+	s.runtimeSettings = provider
+}
+
 func portFromString(value string) (int, error) {
 	port, err := strconv.Atoi(value)
 	if err != nil {
@@ -477,6 +485,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleMemoryHistory(w, r)
 	case "/api/v1/runtime/direct-stats":
 		s.handleRuntimeDirectStats(w, r)
+	case "/api/v1/runtime/settings":
+		s.handleRuntimeSettings(w, r)
 	case "/api/v1/datapath":
 		s.handleDatapath(w, r)
 	case "/api/v1/rules":
@@ -555,7 +565,6 @@ var unavailablePrefixes = []string{
 	// Known contract resources with no implementation plan: answer
 	// capability_not_supported instead of the generic resource_not_found.
 	"/api/v1/geodata/update",
-	"/api/v1/runtime/settings",
 	"/api/v1/auth",
 }
 

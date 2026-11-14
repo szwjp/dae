@@ -24,6 +24,7 @@ listener 的配置、认证、TLS、Host/Origin 校验与自托管前端见
 - `GET /api/v1/runtime/memory` — 进程、cgroup v2 与 eBPF 内存
 - `GET /api/v1/runtime/memory/history?window_seconds=&max_points=`
 - `GET /api/v1/runtime/direct-stats` — 需开启的直连流量计数
+- `GET`/`PATCH /api/v1/runtime/settings` — 免 reload 生效的运行时设置
 - `GET /api/v1/datapath` — eBPF 挂载点、routing generation 与 map 占用
 - `GET /api/v1/nodes?group_id=&limit=&cursor=`
 - `GET /api/v1/nodes/{node_id}`
@@ -73,7 +74,7 @@ reload，返回 `200 {"updated": 0}`。该端点是 dae 在契约之外的扩展
 provider 可以刷新，inline/file provider 返回 `404 capability_not_supported`；刷新排队一个
 `provider_refresh` 操作。
 
-`/api/v1/runtime/settings` 与 `/api/v1/auth*` 返回 `404 capability_not_supported`。
+`/api/v1/auth*` 返回 `404 capability_not_supported`。
 路由模拟的能力随当前 generation 提供；超过 4096 个规则步骤时不会构建模拟器。
 `routing_trace.available` 为 `false` 时，
 `POST /api/v1/routing/trace` 返回同一错误。它只模拟、不执行连接或 DNS 查询，且当前仅支持
@@ -328,6 +329,26 @@ reload 保留。流量存储与 per-outbound 计数器一样是进程级：reloa
 时该行还会带上内核直连的链路字节，此时总和会比 `runtime.traffic.bytes` 多出这部分。
 builtin `block` 行不再暴露：被封锁的流量在数据面被直接丢弃，永远不会进入任何计数器，
 该行只可能恒为 0。
+
+### 运行时设置
+
+`GET /api/v1/runtime/settings` 返回 `observed_at`、`source`、当前 `log.level`，以及每个记录器
+的 `allowed`、`mode`、`active`。`PATCH` 合并其中一部分字段并返回同一份文档。
+`capabilities.resources.runtime_settings.fields` 列出本引擎支持免 reload 调整的字段：
+`log.level`、`record_flows`、`record_logs`、`record_dns_log`。
+
+- `log.level` 立即改变运行中的日志级别；它只作用于进程，reload 会重新应用
+  `global.log_level`。
+- `record_*` 取 `auto`、`on` 或 `off`。dae 在记录器开启期间持续记录，因此 `auto` 与 `on`
+  等价；`off` 分别释放流记账（`/flows` 历史与按流字节计数）、DNS 日志环或日志重放环。
+  关闭 `record_logs` 后 `/logs` 订阅者也收不到新帧，因为环本身就是通道。
+- `source` 在 PATCH 改动之前为 `config`，之后为 `runtime`。设置不会写入配置文件：下一次
+  reload 成功后所有 mode 回到 `auto`，日志级别回到配置值。
+- 契约定义但本引擎未实现的字段（`log.buffered_records`、`flows.max_flows`、
+  `flows.retention_seconds`、`dns_log.max_records`、`geodata`）返回
+  `422 unsupported_value`，不会静默忽略。
+
+`active` 反映引擎的实际状态而不是请求的 mode；`resources.flows.recording` 跟随流记录模式。
 
 ### 直连流量
 

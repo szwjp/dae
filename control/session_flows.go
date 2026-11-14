@@ -34,6 +34,12 @@ func ConfigureFlowStats(enabled bool) {
 	flowStatsEnabled.Store(enabled)
 }
 
+// FlowStatsEnabled reports whether per-flow bookkeeping is running. Runtime
+// settings read it to report the flow recorder's active state.
+func FlowStatsEnabled() bool {
+	return flowStatsEnabled.Load()
+}
+
 func flowStatsActive() bool {
 	return flowStatsEnabled.Load()
 }

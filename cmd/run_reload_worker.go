@@ -45,6 +45,11 @@ type reloadWorker struct {
 	currCancel  context.CancelFunc
 	listener    *control.Listener
 	pprofServer *http.Server
+
+	// runtimeSettings is nil when the API is disabled. Run resets it after a
+	// reload is published, because the new configuration supplies every value
+	// it overrides.
+	runtimeSettings *runtimeSettings
 }
 
 // currentRuntimeGeneration returns the supervisor's active generation when it

@@ -81,6 +81,12 @@ func dnsLogActive() bool {
 	return !dnsLogDisabled.Load()
 }
 
+// DnsLogEnabled reports whether DNS queries are being recorded. Runtime
+// settings read it to report the DNS log recorder's active state.
+func DnsLogEnabled() bool {
+	return dnsLogActive()
+}
+
 func (c *DnsController) recordDnsLog(question dnsmessage.Question, req *udpRequest, status string, cached bool, upstream string, answers []dnsmessage.RR, started time.Time) {
 	if !dnsLogActive() || c == nil || c.dnsControllerStore == nil || question.Name == "" {
 		return

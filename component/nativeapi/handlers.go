@@ -260,7 +260,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	if s.flows != nil {
 		resources["flows"] = map[string]any{
 			"available":            true,
-			"recording":            "on",
+			"recording":            s.flowRecordingPolicy(),
 			"scopes":               []string{"userspace_tcp", "userspace_udp"},
 			"max_flows":            2048,
 			"max_steps_per_flow":   1,
@@ -361,6 +361,14 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		resources["suspend"] = map[string]any{"available": false}
 		resources["resume"] = map[string]any{"available": false}
 	}
+	if s.runtimeSettings != nil {
+		resources["runtime_settings"] = map[string]any{
+			"available": true,
+			"fields":    s.runtimeSettings.RuntimeSettingFields(),
+		}
+	} else {
+		resources["runtime_settings"] = map[string]any{"available": false}
+	}
 
 	writeJSON(w, http.StatusOK, Capabilities{
 		ObservedAt: time.Now().UTC().Format(time.RFC3339),
@@ -372,6 +380,16 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		},
 		Resources: resources,
 	})
+}
+
+func (s *Server) flowRecordingPolicy() string {
+	if s.runtimeSettings == nil {
+		return "on"
+	}
+	if policy := s.runtimeSettings.FlowRecordingPolicy(); policy != "" {
+		return policy
+	}
+	return "on"
 }
 
 func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
