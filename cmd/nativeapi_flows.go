@@ -7,6 +7,7 @@ package cmd
 
 import (
 	"context"
+	"net/netip"
 	"sort"
 	"time"
 
@@ -27,12 +28,22 @@ func connectionIDOfFlow(flowID string) string {
 	return "c_" + flowID
 }
 
+// addrPortText keeps an unset address out of the panel: netip's zero value prints as
+// "invalid AddrPort", which reads as an error in a connection table that means "no
+// destination recorded yet" (a UDP flow before its first datagram names its peer).
+func addrPortText(addr netip.AddrPort) string {
+	if !addr.IsValid() {
+		return ""
+	}
+	return addr.String()
+}
+
 func (p *nativeAPIProvider) nativeConnectionOf(flow control.SessionFlowSnapshot) nativeapi.Connection {
 	connection := nativeapi.Connection{
 		ID:             connectionIDOfFlow(flow.ID),
 		State:          "active",
-		Src:            flow.Src.String(),
-		Dst:            flow.Dst.String(),
+		Src:            addrPortText(flow.Src),
+		Dst:            addrPortText(flow.Dst),
 		Chain:          []string{},
 		ChainSource:    "unknown",
 		RuleSource:     "unknown",
