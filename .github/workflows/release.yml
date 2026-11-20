@@ -343,6 +343,9 @@ jobs:
           files: release/*/*
 
   docker:
+    # Publish to the daeuniverse DockerHub namespace from the upstream repository
+    # only: a fork has neither the secrets nor the right to that image name.
+    if: github.repository == 'daeuniverse/dae'
     needs: [preflight, upload-release]
     uses: ./.github/workflows/docker-image.yml
     with:
